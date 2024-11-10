@@ -140,8 +140,7 @@ int main(int argc, char *argv[]) {
         for (size_t i = 0; i < cidr_count; ++i) {
             printf("%s\n", cidr_records[i]);
         }
-        // Звільнення виділеної пам'яті
-        free(*cidr_records);
+        free(*cidr_records); // Free memory
     }
 
     free_parsed_data(&parsed_data);
