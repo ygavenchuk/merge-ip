@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
     size_t cidr_count = merge_cidr(parsed_data.cidrs, parsed_data.length, &cidr_records);
     if (cidr_count > 0) {
         if (options.debug) {
-            printf("DEBUG: Об'єднані діапазони IP у CIDR форматі (%zu шт):\n", cidr_count);
+            printf("DEBUG: Merged IP ranges in the CIDR format (total: %zu)\n", cidr_count);
         }
 
         for (size_t i = 0; i < cidr_count; ++i) {
