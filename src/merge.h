@@ -16,16 +16,26 @@
 
 #ifndef MERGE_IP_MERGE_H
 #define MERGE_IP_MERGE_H
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <math.h>
 
 #define CIDR_SIZE 20
 
 typedef char CidrRecord[CIDR_SIZE];
 
+/**
+ * @brief Merges overlapping CIDR blocks
+ *
+ * This function processes a list of CIDR blocks, parses them into IP ranges,
+ * merges overlapping or contiguous ranges, and then converts the merged ranges
+ * back into CIDR strings. The resultant CIDR strings are stored in a newly
+ * allocated array.
+ *
+ * @param cidr_list A list of C-strings representing CIDR blocks.
+ * @param cidr_list_size The number of elements in the `cidr_list` array.
+ * @param cidr_records A pointer to an array of `CidrRecord` where the resultant CIDR strings
+ *                     will be stored. Memory for this array will be allocated by the function.
+ *
+ * @return The number of resulting CIDR records stored in the `cidr_records` array.
+ */
 size_t merge_cidr(const char **cidr_list, size_t cidr_list_size, CidrRecord **cidr_records);
 
 #endif //MERGE_IP_MERGE_H

@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-#ifndef MERGE_IP_PARSE_H
-#define MERGE_IP_PARSE_H
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
 
-// Struct to store CIDR blocks and its count
-typedef struct {
-    const char **cidrs;
-    size_t length;
-} ParsedData;
+void test_merge_cidr(void **state);
+void test_parse_command_line_options(void **state);
 
-void free_parsed_data(ParsedData *data);
-ParsedData read_from_stdin();
-ParsedData read_from_file(const char *filename);
+int main(void) {
+    const struct CMUnitTest tests[] = {
+            cmocka_unit_test(test_merge_cidr),
+            cmocka_unit_test(test_parse_command_line_options),
+    };
 
-#endif //MERGE_IP_PARSE_H
+    return cmocka_run_group_tests(tests, NULL, NULL);
+}

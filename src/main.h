@@ -14,17 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef MERGE_IP_PARSE_H
-#define MERGE_IP_PARSE_H
+#pragma once
 
-// Struct to store CIDR blocks and its count
-typedef struct {
-    const char **cidrs;
-    size_t length;
-} ParsedData;
-
-void free_parsed_data(ParsedData *data);
-ParsedData read_from_stdin();
-ParsedData read_from_file(const char *filename);
-
-#endif //MERGE_IP_PARSE_H
+#define VERSION "0.0.1"
+#define PROGRAM_NAME "merge-ip"
+#define PROGRAM_COPYRIGHT "Copyright 2024 Yurii Havenchuk"
+#define PROGRAM_LICENSE "Apache License, Version 2.0"
+#define PROGRAM_LICENSE_URL "http://www.apache.org/licenses/LICENSE-2.0"
+#define PROGRAM_BUG_REPORTS_URL "https://github.com/ygavenchuk/merge-ip/issues"
