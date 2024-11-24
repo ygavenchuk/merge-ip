@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-#ifndef MERGE_IP_PARSE_H
-#define MERGE_IP_PARSE_H
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
+#include "merge.h"
 
-// Struct to store CIDR blocks and its count
-typedef struct {
-    const char **cidrs;
-    size_t length;
-} ParsedData;
+void test_merge_cidr(void **state) {
+    const char *cidr_list[] = {"192.168.0.0/24", "192.168.1.0/24"};
+    CidrRecord *cidr_records = NULL;
+    size_t count = merge_cidr(cidr_list, 2, &cidr_records);
 
-void free_parsed_data(ParsedData *data);
-ParsedData read_from_stdin();
-ParsedData read_from_file(const char *filename);
+    assert_int_equal(count, 1);
+    assert_string_equal(cidr_records[0], "192.168.0.0/23");
 
-#endif //MERGE_IP_PARSE_H
+    free(cidr_records);
+}

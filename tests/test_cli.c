@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef MERGE_IP_PARSE_H
-#define MERGE_IP_PARSE_H
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
+#include "cli.h"
 
-// Struct to store CIDR blocks and its count
-typedef struct {
-    const char **cidrs;
-    size_t length;
-} ParsedData;
+void test_parse_command_line_options(void **state) {
+    char *args[] = {"merge-ip", "-f", "test.txt", "-d"};
+    CommandLineOptions options = parse_command_line_options(4, args);
 
-void free_parsed_data(ParsedData *data);
-ParsedData read_from_stdin();
-ParsedData read_from_file(const char *filename);
-
-#endif //MERGE_IP_PARSE_H
+    assert_non_null(options.file);
+    assert_string_equal(options.file, "test.txt");
+    assert_true(options.debug);
+}

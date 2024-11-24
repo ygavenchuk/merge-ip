@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.19)
-project(merge-ip C)
+file(GLOB HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
+file(GLOB SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
-set(CMAKE_C_STANDARD 11)
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_definitions(-Ofast)
+else ()
+    add_definitions(-Wno-unused-parameter -Wall -Werror -Wextra)
+endif()
 
-add_subdirectory(src)
-add_subdirectory(tests)
-
-message(STATUS "CMake project setup complete. Ready to build and run tests.")
+add_executable(merge-ip ${HEADERS} ${SOURCES})

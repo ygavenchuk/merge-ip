@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <math.h>
+
 #include "merge.h"
 
 
 #define ALL_ONES 0xFFFFFFFF
-
 
 
 // A struct to store minimal and maximal IPs
