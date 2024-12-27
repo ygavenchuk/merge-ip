@@ -18,8 +18,29 @@ file(GLOB SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
     add_definitions(-Ofast)
+elseif (CMAKE_BUILD_TYPE STREQUAL "Asan")
+    add_definitions(
+            -g
+            -O1
+            -Wno-unused-parameter
+            -Wall
+            -Werror
+            -Wextra
+            -fno-omit-frame-pointer
+            -fsanitize=address
+            -fsanitize=integer
+            -fsanitize=undefined
+    )
+    add_link_options(-fsanitize=address -fsanitize=integer -fsanitize=undefined)
 else ()
-    add_definitions(-Wno-unused-parameter -Wall -Werror -Wextra)
+    add_definitions(
+        -g
+        -Wno-unused-parameter
+        -Wall
+        -Werror
+        -Wextra
+        -fno-omit-frame-pointer
+    )
 endif()
 
 add_executable(merge-ip ${HEADERS} ${SOURCES})

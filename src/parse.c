@@ -114,12 +114,16 @@ ipRangeList parse_content(const char *content, const regex_t *regex) {
 
         // Add `/32` prefix for "pure" IPv4
         if (strchr(cidr, '/') == NULL) {
-            char *cidr_with_prefix = malloc(length + 4); // 3 for "/32" і 1 for '\0'
+            char *cidr_with_prefix = malloc(length + 4); // 3 for "/32" and 1 for '\0'
             if (!cidr_with_prefix) {
                 perror("Failed to allocate CIDR with prefix");
                 exit(EXIT_FAILURE);
             }
-            sprintf(cidr_with_prefix, "%s/32", cidr);
+
+            if (snprintf(cidr_with_prefix, length + 4, "%s/32", cidr) != length + 3) {  // without tailing '\0'
+                perror("Failed to append CIDR prefix");
+                exit(EXIT_FAILURE);
+            }
             free(cidr);
             cidr = cidr_with_prefix;
         }
