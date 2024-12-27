@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "ipRange.h"
 #include "merge.h"
 #include "parse.h"
 #include "cli.h"
@@ -37,24 +38,24 @@
  * @param argv The array of command line arguments.
  * @return int Returns 0 on successful execution.
  */
-int main(int argc, char *argv[]) {
-    CommandLineOptions options = parse_command_line_options(argc, argv);
-    ParsedData parsed_data;
+int main(const int argc, char *argv[]) {
+    const CommandLineOptions options = parse_command_line_options(argc, argv);
+    ipRangeList ip_range_list;
 
     if (options.file) {
         if (options.debug) {
             printf("DEBUG: Reading from file: %s\n", options.file);
         }
-        parsed_data = read_from_file(options.file);
+        ip_range_list = read_from_file(options.file);
     } else {
         if (options.debug) {
             printf("DEBUG: Reading from stdin\n");
         }
-        parsed_data = read_from_stdin();
+        ip_range_list = read_from_stdin();
     }
 
     CidrRecord *cidr_records = NULL;
-    size_t cidr_count = merge_cidr(parsed_data.cidrs, parsed_data.length, &cidr_records);
+    const size_t cidr_count = merge_cidr(&ip_range_list, &cidr_records);
     if (cidr_count > 0) {
         if (options.debug) {
             printf("DEBUG: Merged IP ranges in the CIDR format (total: %zu)\n", cidr_count);
@@ -65,8 +66,6 @@ int main(int argc, char *argv[]) {
         }
         free(*cidr_records); // Free memory
     }
-
-    free_parsed_data(&parsed_data);
 
     return 0;
 }

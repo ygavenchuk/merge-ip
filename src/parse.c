@@ -26,69 +26,53 @@
 
 
 /**
- * @brief Initializes a ParsedData structure.
+ * Parses a CIDR block and calculates the minimum and maximum IP addresses within the range.
  *
- * This function allocates memory for the CIDR buffer within a ParsedData structure
- * and initializes its length to zero.
+ * This function takes a CIDR block in the form "address/prefix_length", parses it, and computes
+ * the range of IP addresses that fall within that CIDR block.
  *
- * @return A ParsedData structure with an allocated CIDR buffer and zero length.
- *
- * @note If memory allocation fails, the function prints an error message and exits the program.
+ * @param cidr A C-string containing the CIDR notation (e.g., "192.168.1.0/24").
+ * @param range A pointer to an ipRange struct where the computed min and max IP addresses will be stored.
+ * @return Integer status code:
+ *         - 0 on success
+ *         - 2 if the IP address is invalid
+ *         - 3 if the subnet mask is invalid
  */
-ParsedData initial_parsed_data() {
-    ParsedData data;
-    data.cidrs = malloc(sizeof(char *) * BUFFER_SIZE);
-    if (!data.cidrs) {
-        perror("Failed to allocate CIDR buffer");
-        exit(EXIT_FAILURE);
-    }
-    data.length = 0;
-    return data;
-}
+int parse_cidr(const char *cidr, ipRange *range) {
+    const ushort CIDR_MAX_LENGTH = 32;
 
-/**
- * Frees the memory allocated for the ParsedData structure.
- *
- * This function releases the memory used by the CIDR blocks
- * stored in the `cidrs` array of the `ParsedData` structure.
- *
- * @param data Pointer to ParsedData structure whose memory
- *             needs to be freed.
- */
-void free_parsed_data(ParsedData *data) {
-    for (size_t i = 0; i < data->length; ++i) {
-        free((char*)data->cidrs[i]);    // casting to `char *` here is to remove compile time warning
-    }
-    free(data->cidrs);
-}
+    char cidr_copy[CIDR_MAX_LENGTH];
+    strncpy(cidr_copy, cidr, CIDR_MAX_LENGTH);
 
-/**
- * Adds a CIDR block to the ParsedData structure.
- *
- * This function ensures that the ParsedData structure has enough space
- * to store the new CIDR block, reallocating if necessary. It then duplicates
- * and stores the CIDR block and increments the length counter.
- *
- * @param data Pointer to the ParsedData structure.
- * @param cidr The CIDR block to add.
- *
- * @note If memory allocation fails, the function prints an error message and
- *       exits the program.
- */
-void add_cidr(ParsedData *data, const char *cidr) {
-    if (data->length >= BUFFER_SIZE) {
-        data->cidrs = realloc(data->cidrs, 2 * data->length * sizeof(char *));
-        if (!data->cidrs) {
-            perror("Failed to reallocate CIDR buffer");
-            exit(EXIT_FAILURE);
-        }
+    // split CIDR to IP & mask
+    char *slash = strchr(cidr_copy, '/');
+    if (slash == NULL) {
+        // if there's no prefix add /32
+        strncat(cidr_copy, "/32", sizeof(cidr_copy) - strlen(cidr_copy) - 1);
+        slash = strchr(cidr_copy, '/');
     }
-    data->cidrs[data->length] = strdup(cidr);
-    if (!data->cidrs[data->length]) {
-        perror("Failed to allocate CIDR");
-        exit(EXIT_FAILURE);
+    *slash = '\0';
+
+    // convert IP address to binary format
+    struct in_addr ip;
+    if (inet_aton(cidr_copy, &ip) == 0) {
+        fprintf(stderr, "ERROR: invalid IP address: %s\n", cidr_copy);
+        return 2; // Error code
     }
-    data->length++;
+
+    // compute mask
+    const u_int prefix_len = atoi(slash + 1);
+    if (prefix_len < 0 || prefix_len > CIDR_MAX_LENGTH) {
+        fprintf(stderr, "ERROR: invalid network mask: %s\n", slash + 1);
+        return 3; // Код помилки
+    }
+
+    // compute minimal & maximal IP-address
+    const uint32_t mask = (uint32_t)htonl(~((1 << (CIDR_MAX_LENGTH - prefix_len)) - 1));
+    range->min_ip.s_addr = ntohl(ip.s_addr & mask);
+    range->max_ip.s_addr = ntohl(ip.s_addr | ~mask);
+
+    return 0; // success
 }
 
 
@@ -109,15 +93,16 @@ void add_cidr(ParsedData *data, const char *cidr) {
  * @note If memory allocation fails, the function prints an error message and
  *       exits the program.
  */
-ParsedData parse_content(char *content, regex_t *regex) {
-    ParsedData data = initial_parsed_data();
+ipRangeList parse_content(const char *content, const regex_t *regex) {
+    ipRangeList data = getIpRangeList(BUFFER_SIZE);
 
     regmatch_t matches[2];
+    ipRange *ip_range = malloc(sizeof(ipRange));
 
     while (regexec(regex, content, 2, matches, 0) == 0) {
-        long long start = matches[1].rm_so;
-        long long end = matches[1].rm_eo;
-        long long length = end - start;
+        const long long start = matches[1].rm_so;
+        const long long end = matches[1].rm_eo;
+        const long long length = end - start;
 
         char *cidr = malloc(length + 1);
         if (!cidr) {
@@ -139,11 +124,16 @@ ParsedData parse_content(char *content, regex_t *regex) {
             cidr = cidr_with_prefix;
         }
 
-        add_cidr(&data, cidr);
+        if (parse_cidr(cidr, ip_range) == 0) {
+            appendIpRange(&data, ip_range);
+        }
+
         free(cidr);
 
         content += end;
     }
+
+    free(ip_range);
 
     return data;
 }
@@ -164,22 +154,23 @@ ParsedData parse_content(char *content, regex_t *regex) {
  *
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
-ParsedData read_from_stream(FILE *stream) {
-    ParsedData overall_data = initial_parsed_data();
+ipRangeList read_from_stream(FILE *stream) {
+    ipRangeList overall_data = getIpRangeList(BUFFER_SIZE);
     char buffer[BUFFER_SIZE];
     char *remaining = NULL;
     size_t remaining_size = 0;
 
-    const char *pattern = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)";
+    const char *CIDR_PATTERN = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)";
     regex_t regex;
-    if (regcomp(&regex, pattern, REG_EXTENDED)) {
+    if (regcomp(&regex, CIDR_PATTERN, REG_EXTENDED)) {
         fprintf(stderr, "Failed to compile regex.\n");
         exit(EXIT_FAILURE);
     }
 
     while (fgets(buffer, sizeof(buffer), stream)) {
-        size_t buffer_len = strlen(buffer);
+        const size_t buffer_len = strlen(buffer);
 
+        // todo: minimize number of allocations
         // Allocate memory for the temporary buffer
         char *temp_buffer = malloc((remaining_size + buffer_len + 1) * sizeof(char));
         if (remaining) {
@@ -187,22 +178,25 @@ ParsedData read_from_stream(FILE *stream) {
         }
         memcpy(temp_buffer + remaining_size, buffer, buffer_len + 1);
 
-        // Parse the content
-        ParsedData part_data = parse_content(temp_buffer, &regex);
+        // todo: minimize number of allocations
+        ipRangeList part_data = parse_content(temp_buffer, &regex);
         for (size_t i = 0; i < part_data.length; ++i) {
-            add_cidr(&overall_data, part_data.cidrs[i]);
-            free((char*)part_data.cidrs[i]);    // casting to `char *` here is to remove compile time warning
+            appendIpRange(&overall_data, &part_data.cidrs[i]);
         }
-        free(part_data.cidrs);
+        freeIpRangeList(&part_data);
 
         // Find remaining unparsed part
-        char *last_token = temp_buffer + remaining_size + buffer_len;
+        const char *last_token = temp_buffer + remaining_size + buffer_len;
         while (last_token > temp_buffer && !isspace(*last_token)) {
             last_token--;
         }
         remaining_size = temp_buffer + remaining_size + buffer_len - last_token;
 
         remaining = realloc(remaining, remaining_size + 1);
+        if (!remaining) {
+            perror("Failed to reallocate CIDR range buffer");
+            exit(EXIT_FAILURE);
+        }
         memcpy(remaining, last_token, remaining_size);
         remaining[remaining_size] = '\0';
 
@@ -210,12 +204,11 @@ ParsedData read_from_stream(FILE *stream) {
     }
 
     if (remaining && remaining_size > 0) {
-        ParsedData part_data = parse_content(remaining, &regex);
+        ipRangeList part_data = parse_content(remaining, &regex);
         for (size_t i = 0; i < part_data.length; ++i) {
-            add_cidr(&overall_data, part_data.cidrs[i]);
-            free((char*)part_data.cidrs[i]);    // casting to `char *` here is to remove compile time warning
+            appendIpRange(&overall_data, &part_data.cidrs[i]);
         }
-        free(part_data.cidrs);
+        freeIpRangeList(&part_data);
         free(remaining);
     }
 
@@ -236,13 +229,13 @@ ParsedData read_from_stream(FILE *stream) {
  * @note If the file cannot be opened, the function prints an error message
  *       and exits the program with a failure status.
  */
-ParsedData read_from_file(const char *filename) {
+ipRangeList read_from_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Failed to open file");
         exit(EXIT_FAILURE);
     }
-    ParsedData data = read_from_stream(file);
+    const ipRangeList data = read_from_stream(file);
     fclose(file);
     return data;
 }
@@ -258,6 +251,6 @@ ParsedData read_from_file(const char *filename) {
  * @return A ParsedData structure containing the parsed CIDR blocks and their
  *         count.
  */
-ParsedData read_from_stdin() {
+ipRangeList read_from_stdin() {
     return read_from_stream(stdin);
 }
