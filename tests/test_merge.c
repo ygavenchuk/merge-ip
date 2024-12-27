@@ -14,22 +14,55 @@
  * limitations under the License.
  */
 
+#include <regex.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <string.h>
 #include <setjmp.h>
 #include <cmocka.h>
+
 #include "merge.h"
+#include "parse.h"
+#include "ipRange.h"
+
+
+typedef struct {
+    const char **input_cidr_list;
+    const size_t input_count;
+    const char **expected_cidr_list;
+    const size_t expected_count;
+} TestCase;
+
+
+FILE *write_to_stream(const TestCase* testCases) {
+    size_t total_length = 1;  // an empty line at the EoF
+    for (size_t item = 0; item < testCases->input_count; item++) {
+        total_length += strlen(testCases->input_cidr_list[item]) + 1; // +1 for newline
+    }
+    
+    char buffer[total_length];
+    memset(buffer, 0, sizeof(buffer));
+    
+    FILE *stream = fmemopen(buffer, sizeof(buffer), "w+");
+    if (!stream) {
+        perror("Failed to open memory stream");
+        exit(EXIT_FAILURE);
+    }
+
+    for (size_t item = 0; item < testCases->input_count; item++) {
+        fprintf(stream, "%s\n", testCases->input_cidr_list[item]);
+    }
+    fprintf(stream, "\n");  // an empty line at the EoF
+
+    rewind(stream);
+    return stream;
+}
+
 
 void test_merge_cidr(void **state) {
-    struct TestCase {
-        const char **input_cidr_list;
-        size_t input_count;
-        const char **expected_cidr_list;
-        size_t expected_count;
-    };
-
-    struct TestCase test_cases[] = {
+    const TestCase test_cases[] = {
         {
             .input_cidr_list = (const char *[]){"192.168.0.0/24", "192.168.1.0/24"},
             .input_count = 2,
@@ -101,8 +134,11 @@ void test_merge_cidr(void **state) {
     };
 
     for (size_t i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); i++) {
+        FILE *stream = write_to_stream(&test_cases[i]);
+        ipRangeList range_list = read_from_stream(stream);
+
         CidrRecord *cidr_records = NULL;
-        size_t count = merge_cidr(test_cases[i].input_cidr_list, test_cases[i].input_count, &cidr_records);
+        const size_t count = merge_cidr(&range_list, &cidr_records);
 
         assert_int_equal(count, test_cases[i].expected_count);
 
@@ -111,5 +147,6 @@ void test_merge_cidr(void **state) {
         }
 
         free(cidr_records);
+        fclose(stream);
     }
 }
