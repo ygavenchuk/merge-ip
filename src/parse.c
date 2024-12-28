@@ -181,7 +181,12 @@ ipRangeList read_from_stream(FILE *stream) {
 
         // todo: minimize number of allocations
         // Allocate memory for the temporary buffer
-        char *temp_buffer = malloc((remaining_size + buffer_len + 1) * sizeof(char));
+        char *temp_buffer = malloc(remaining_size + buffer_len + 1);
+        if (!temp_buffer) {
+            perror("Failed to allocate CIDR range temporary buffer");
+            exit(EXIT_FAILURE);
+        }
+
         if (remaining) {
             memcpy(temp_buffer, remaining, remaining_size);
         }
