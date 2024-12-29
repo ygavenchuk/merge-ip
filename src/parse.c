@@ -15,6 +15,7 @@
  */
 
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +25,16 @@
 #include "parse.h"
 
 #define BUFFER_SIZE 1024
+// strlen("255.255.255.255/255.255.255.255") + '\0'
 #define CIDR_MAX_LENGTH 32
+// strlen("1.1.1.1/0") + '\0'
+#define CIDR_MIN_LENGTH 10
+// The buffer may contain a limited number of records. In the limiting case there cannot be more than
+// ceil(BUFFER_SIZE / (CIDR_MIN_LENGTH + 1) )
+// Here:
+//   - `(BUFFER_SIZE + (CIDR_MIN_LENGTH + 1) - 1)` is an integer equivalent of `ceil()`
+//   - `+1` in the denominator is for a separator between adjacent records
+#define MAX_BUFFER_CAPACITY ((BUFFER_SIZE + (CIDR_MIN_LENGTH + 1) - 1) / (CIDR_MIN_LENGTH + 1))
 
 
 /**
@@ -164,8 +174,8 @@ void parse_content(const char *content, const regex_t *regex, ipRangeList *range
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
 ipRangeList read_from_stream(FILE *stream) {
-    ipRangeList overall_data = getIpRangeList(BUFFER_SIZE);
-    char buffer[BUFFER_SIZE];
+    ipRangeList overall_data = getIpRangeList(MAX_BUFFER_CAPACITY); 
+    char buffer[BUFFER_SIZE] = {0};
     char *remaining = NULL;
     size_t remaining_size = 0;
 
@@ -176,6 +186,10 @@ ipRangeList read_from_stream(FILE *stream) {
         exit(EXIT_FAILURE);
     }
 
+    // using `fread()` here gives a bit different result in some cases. There's a risk of bug, presumably at the stage
+    // of processing a reminder. Needs additional investigation!
+    //
+    // while (fread(buffer, 1, sizeof(buffer), stream)) {
     while (fgets(buffer, sizeof(buffer), stream)) {
         const size_t buffer_len = strlen(buffer);
 
