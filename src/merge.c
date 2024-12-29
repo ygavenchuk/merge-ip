@@ -37,7 +37,7 @@
  * maximum IP addresses.
  * @return The maximum number of CIDRs within the specified IP range.
  */
-size_t get_max_cidr_count(const ipRange *range) {
+inline size_t get_max_cidr_count(const ipRange *range) {
     return range->max_ip.s_addr - range->min_ip.s_addr + 1;
 }
 
@@ -57,8 +57,8 @@ size_t get_max_cidr_count(const ipRange *range) {
  *         is based on the `max_ip` values.
  */
 int compare_ip_ranges(const void *a, const void *b) {
-    ipRange *rangeA = (ipRange *)a;
-    ipRange *rangeB = (ipRange *)b;
+    const ipRange *rangeA = (ipRange *)a;
+    const ipRange *rangeB = (ipRange *)b;
 
     // first compare min_ip
     if (rangeA->min_ip.s_addr < rangeB->min_ip.s_addr) return -1;
@@ -156,95 +156,58 @@ uint32_t count_right_hand_zero_bits(const uint32_t number, const uint32_t bits) 
 
 
 /**
- * @brief Summarizes an IP address range into a list of CIDR notations.
+ * @brief Writes IP ranges in CIDR notation to a file.
  *
- * This function takes a range of IP addresses, identifies the largest possible
- * CIDR blocks within that range, and outputs the corresponding CIDR notation
- * strings. It returns the number of CIDR blocks created.
+ * This function iterates over an array of `ipRange` structures, converts each range
+ * into CIDR notation, and writes the CIDR blocks to the specified output file stream.
+ * It returns the total number of CIDR blocks written.
  *
- * @param range Structure containing the minimum and maximum IP addresses of the range.
- * @param cidr_records Pointer to an array of CidrRecord where CIDR notations will be stored.
- * @return The number of CIDR blocks in the summarized range.
+ * @param ranges Pointer to an array of `ipRange` structures representing the IP ranges to be written.
+ * @param out The output file stream where the CIDR blocks will be written.
+ *
+ * @return The total number of CIDR blocks written to the file.
  */
-size_t summarize_address_range(const ipRange *range, CidrRecord **cidr_records) {
-    uint32_t first = range->min_ip.s_addr;
-    const uint32_t last = range->max_ip.s_addr;
-    size_t count = 0;
+size_t write_ip_ranges_to_file(const ipRangeList *ranges, FILE *out) {
+    size_t total_cidr_count = 0;
 
-    const size_t max_cidr_count = get_max_cidr_count(range);
+    for (size_t i = 0; i < ranges->length; ++i) {
+        uint32_t first = ranges->cidrs[i].min_ip.s_addr;
+        const uint32_t last = ranges->cidrs[i].max_ip.s_addr;
 
-    while (first <= last && count < max_cidr_count) {
-        const unsigned int IP_BITS = 32;
-        const uint32_t nbits = (uint32_t)fmin(
+        while ((first <= last) && (first - 1 != ALL_ONES)) {
+            const unsigned short IP_BITS = 32;
+            const uint32_t nbits = (uint32_t)fmin(
                 count_right_hand_zero_bits(first, IP_BITS),
                 bit_length(last - first + 1) - 1
-        );
+            );
 
-        const struct in_addr addr = {.s_addr = htonl(first)}; // return back to the network byte order
+            const struct in_addr addr = {.s_addr = htonl(first)};
+            fprintf(out, "%s/%d\n", inet_ntoa(addr), IP_BITS - nbits);
+            total_cidr_count++;
 
-        snprintf((*cidr_records)[count], CIDR_SIZE, "%s/%d", inet_ntoa(addr), IP_BITS - nbits);
-        count++;
-
-        first += 1 << nbits;
+            first += 1 << nbits;
+        }
 
         if (first - 1 == ALL_ONES) {
             break;
         }
     }
 
-    return count;
+    return total_cidr_count;
 }
 
 /**
- * @brief Converts IP ranges into CIDR (Classless Inter-Domain Routing) notations.
+ * @brief Prints IP ranges in CIDR notation to the standard output stream.
  *
- * This function takes an array of IP ranges and converts each range into a list of
- * corresponding CIDR notations. It outputs the list of CIDR notations and returns
- * the total count of CIDR records created.
+ * This function is a wrapper around `write_ip_ranges_to_file` that prints the
+ * CIDR blocks to the standard output stream.
  *
- * @param ranges Pointer to an array of ipRange structures representing the IP ranges
- * to be converted.
- * @param count Number of IP ranges in the array.
- * @param cidr_records Output parameter which will point to an allocated array of generated
- * CIDR records.
- * @return The total number of CIDR records created; returns 0 if memory allocation fails.
+ * @param ranges Pointer to an array of `ipRange` structures representing the IP ranges to be printed.
+ *
+ * @return The total number of CIDR blocks printed.
  */
-size_t to_cidr(const ipRangeList *ranges, CidrRecord **cidr_records) {
-    // estimate maximum number of the CIDR records for memory allocation
-    size_t max_cidr_count = 0;
-    for (size_t i = 0; i < ranges->length; ++i) {
-        max_cidr_count += get_max_cidr_count(&ranges->cidrs[i]);
-    }
-
-    *cidr_records = (CidrRecord *)malloc(max_cidr_count * sizeof(CidrRecord));
-    if (*cidr_records == NULL) {
-        fprintf(stderr, "ERROR: cannot allocate memory for the CIDR records\n");
-        return 0;
-    }
-
-    size_t total_cidr_count = 0;
-    for (size_t i = 0; i < ranges->length; ++i) {
-        const size_t cidr_count = summarize_address_range(&ranges->cidrs[i], cidr_records);
-        if (cidr_count == 0) {
-            fprintf(stderr, "ERROR: cannot allocate memory. Stop processing\n");
-            free(*cidr_records - total_cidr_count); // free already allocated memory
-            return 0;
-        }
-        *cidr_records += cidr_count; // move pointer to the next CIDR records
-        total_cidr_count += cidr_count;
-    }
-
-    *cidr_records -= total_cidr_count; // move pointer to the beginning
-
-    if (total_cidr_count < max_cidr_count) {
-        *cidr_records = realloc(*cidr_records, total_cidr_count * sizeof(CidrRecord));
-        if (*cidr_records == NULL) {
-            fprintf(stderr, "ERROR: cannot allocate memory\n");
-            return 0;
-        }
-    }
-
-    return total_cidr_count;
+size_t print_ip_ranges(const ipRangeList *ranges) {
+    return write_ip_ranges_to_file(ranges, stdout);
 }
 
 /**
@@ -255,17 +218,11 @@ size_t to_cidr(const ipRangeList *ranges, CidrRecord **cidr_records) {
  * CIDR strings are stored in a newly allocated array.
  *
  * @param cidr_list A list of C-strings representing CIDR blocks.
- * @param cidr_records A pointer to an array of `CidrRecord` where the resultant CIDR strings
- *                     will be stored. Memory for this array will be allocated by the function.
+ *
  * @return The number of resulting CIDR records stored in the `cidr_records` array.
  */
-size_t merge_cidr(ipRangeList *cidr_list, CidrRecord **cidr_records) {
+ipRangeList merge_cidr(const ipRangeList *cidr_list) {
     // Sort input CIDRs
     qsort(cidr_list->cidrs, cidr_list->length, sizeof(ipRange), compare_ip_ranges);
-
-    ipRangeList mergedRanges = merge_ip_ranges(cidr_list);
-    freeIpRangeList(cidr_list);
-    const size_t cidr_count = to_cidr(&mergedRanges, cidr_records);
-    freeIpRangeList(&mergedRanges);
-    return cidr_count;
+    return merge_ip_ranges(cidr_list);
 }

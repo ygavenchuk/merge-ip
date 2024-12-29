@@ -54,17 +54,14 @@ int main(const int argc, char *argv[]) {
         ip_range_list = read_from_stdin();
     }
 
-    CidrRecord *cidr_records = NULL;
-    const size_t cidr_count = merge_cidr(&ip_range_list, &cidr_records);
-    if (cidr_count > 0) {
+    ipRangeList merged_ip_range = merge_cidr(&ip_range_list);
+    freeIpRangeList(&ip_range_list);
+    const size_t total_merged_cidrs = print_ip_ranges(&merged_ip_range);
+    freeIpRangeList(&merged_ip_range);
+    if (total_merged_cidrs > 0) {
         if (options.debug) {
-            printf("DEBUG: Merged IP ranges in the CIDR format (total: %zu)\n", cidr_count);
+            printf("DEBUG: Merged IP ranges in the CIDR format (total: %zu)\n", total_merged_cidrs);
         }
-
-        for (size_t i = 0; i < cidr_count; ++i) {
-            printf("%s\n", cidr_records[i]);
-        }
-        free(*cidr_records); // Free memory
     }
 
     return 0;

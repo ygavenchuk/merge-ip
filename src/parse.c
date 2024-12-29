@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,6 +25,16 @@
 #include "parse.h"
 
 #define BUFFER_SIZE 1024
+// strlen("255.255.255.255/255.255.255.255") + '\0'
+#define CIDR_MAX_LENGTH 32
+// strlen("1.1.1.1/0") + '\0'
+#define CIDR_MIN_LENGTH 10
+// The buffer may contain a limited number of records. In the limiting case there cannot be more than
+// ceil(BUFFER_SIZE / (CIDR_MIN_LENGTH + 1) )
+// Here:
+//   - `(BUFFER_SIZE + (CIDR_MIN_LENGTH + 1) - 1)` is an integer equivalent of `ceil()`
+//   - `+1` in the denominator is for a separator between adjacent records
+#define MAX_BUFFER_CAPACITY ((BUFFER_SIZE + (CIDR_MIN_LENGTH + 1) - 1) / (CIDR_MIN_LENGTH + 1))
 
 
 /**
@@ -39,8 +51,6 @@
  *         - 3 if the subnet mask is invalid
  */
 int parse_cidr(const char *cidr, ipRange *range) {
-    const ushort CIDR_MAX_LENGTH = 32;
-
     char cidr_copy[CIDR_MAX_LENGTH];
     strncpy(cidr_copy, cidr, CIDR_MAX_LENGTH);
 
@@ -61,8 +71,9 @@ int parse_cidr(const char *cidr, ipRange *range) {
     }
 
     // compute mask
-    const u_int prefix_len = atoi(slash + 1);
-    if (prefix_len < 0 || prefix_len > CIDR_MAX_LENGTH) {
+    char *end = NULL;
+    const long prefix_len = strtol(slash + 1, &end, 10);
+    if (errno == ERANGE || prefix_len < 0 || prefix_len > CIDR_MAX_LENGTH) {
         fprintf(stderr, "ERROR: invalid network mask: %s\n", slash + 1);
         return 3; // Код помилки
     }
@@ -87,59 +98,63 @@ int parse_cidr(const char *cidr, ipRange *range) {
  *
  * @param content The input string to be parsed for CIDR blocks.
  * @param regex A precompiled regular expression to identify CIDR blocks.
+ * @param range_list A pointer to the ipRangeList structure to store the extracted CIDR blocks.
  *
  * @return A ParsedData structure containing the extracted CIDR blocks and their count.
  *
  * @note If memory allocation fails, the function prints an error message and
  *       exits the program.
  */
-ipRangeList parse_content(const char *content, const regex_t *regex) {
-    ipRangeList data = getIpRangeList(BUFFER_SIZE);
-
+void parse_content(const char *content, const regex_t *regex, ipRangeList *range_list) {
     regmatch_t matches[2];
+
     ipRange *ip_range = malloc(sizeof(ipRange));
+    if (!ip_range) {
+        perror("Failed to allocate IP range");
+        exit(EXIT_FAILURE);
+    }
+
+    char *cidr = malloc(CIDR_MAX_LENGTH);
+    if (!cidr) {
+        perror("Failed to allocate CIDR");
+        exit(EXIT_FAILURE);
+    }
+
+    char *cidr_with_prefix = malloc(CIDR_MAX_LENGTH); // 3 for "/32" and 1 for '\0'
+    if (!cidr_with_prefix) {
+        perror("Failed to allocate CIDR with prefix");
+        exit(EXIT_FAILURE);
+    }
 
     while (regexec(regex, content, 2, matches, 0) == 0) {
         const long long start = matches[1].rm_so;
         const long long end = matches[1].rm_eo;
         const long long length = end - start;
 
-        char *cidr = malloc(length + 1);
-        if (!cidr) {
-            perror("Failed to allocate CIDR");
-            exit(EXIT_FAILURE);
-        }
+        memset(cidr, 0, CIDR_MAX_LENGTH);
+        memset(cidr_with_prefix, 0, CIDR_MAX_LENGTH);
         strncpy(cidr, content + start, length);
         cidr[length] = '\0';
 
         // Add `/32` prefix for "pure" IPv4
         if (strchr(cidr, '/') == NULL) {
-            char *cidr_with_prefix = malloc(length + 4); // 3 for "/32" and 1 for '\0'
-            if (!cidr_with_prefix) {
-                perror("Failed to allocate CIDR with prefix");
-                exit(EXIT_FAILURE);
-            }
-
             if (snprintf(cidr_with_prefix, length + 4, "%s/32", cidr) != length + 3) {  // without tailing '\0'
                 perror("Failed to append CIDR prefix");
                 exit(EXIT_FAILURE);
             }
-            free(cidr);
-            cidr = cidr_with_prefix;
+            strncpy(cidr, cidr_with_prefix, length + 4);
         }
 
         if (parse_cidr(cidr, ip_range) == 0) {
-            appendIpRange(&data, ip_range);
+            appendIpRange(range_list, ip_range);
         }
-
-        free(cidr);
 
         content += end;
     }
 
+    free(cidr);
+    free(cidr_with_prefix);
     free(ip_range);
-
-    return data;
 }
 
 
@@ -159,8 +174,8 @@ ipRangeList parse_content(const char *content, const regex_t *regex) {
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
 ipRangeList read_from_stream(FILE *stream) {
-    ipRangeList overall_data = getIpRangeList(BUFFER_SIZE);
-    char buffer[BUFFER_SIZE];
+    ipRangeList overall_data = getIpRangeList(MAX_BUFFER_CAPACITY); 
+    char buffer[BUFFER_SIZE] = {0};
     char *remaining = NULL;
     size_t remaining_size = 0;
 
@@ -171,23 +186,27 @@ ipRangeList read_from_stream(FILE *stream) {
         exit(EXIT_FAILURE);
     }
 
+    // using `fread()` here gives a bit different result in some cases. There's a risk of bug, presumably at the stage
+    // of processing a reminder. Needs additional investigation!
+    //
+    // while (fread(buffer, 1, sizeof(buffer), stream)) {
     while (fgets(buffer, sizeof(buffer), stream)) {
         const size_t buffer_len = strlen(buffer);
 
         // todo: minimize number of allocations
         // Allocate memory for the temporary buffer
-        char *temp_buffer = malloc((remaining_size + buffer_len + 1) * sizeof(char));
+        char *temp_buffer = malloc(remaining_size + buffer_len + 1);
+        if (!temp_buffer) {
+            perror("Failed to allocate CIDR range temporary buffer");
+            exit(EXIT_FAILURE);
+        }
+
         if (remaining) {
             memcpy(temp_buffer, remaining, remaining_size);
         }
         memcpy(temp_buffer + remaining_size, buffer, buffer_len + 1);
 
-        // todo: minimize number of allocations
-        ipRangeList part_data = parse_content(temp_buffer, &regex);
-        for (size_t i = 0; i < part_data.length; ++i) {
-            appendIpRange(&overall_data, &part_data.cidrs[i]);
-        }
-        freeIpRangeList(&part_data);
+        parse_content(temp_buffer, &regex, &overall_data);
 
         // Find remaining unparsed part
         const char *last_token = temp_buffer + remaining_size + buffer_len;
@@ -196,23 +215,22 @@ ipRangeList read_from_stream(FILE *stream) {
         }
         remaining_size = temp_buffer + remaining_size + buffer_len - last_token;
 
-        remaining = realloc(remaining, remaining_size + 1);
-        if (!remaining) {
+        if ((remaining = (char *)realloc(remaining, remaining_size + 1)) == NULL) {
             perror("Failed to reallocate CIDR range buffer");
             exit(EXIT_FAILURE);
         }
+
         memcpy(remaining, last_token, remaining_size);
         remaining[remaining_size] = '\0';
 
         free(temp_buffer);
     }
 
-    if (remaining && remaining_size > 0) {
-        ipRangeList part_data = parse_content(remaining, &regex);
-        for (size_t i = 0; i < part_data.length; ++i) {
-            appendIpRange(&overall_data, &part_data.cidrs[i]);
+    if (remaining != NULL) {
+        if (remaining_size > 0) {
+            parse_content(remaining, &regex, &overall_data);
         }
-        freeIpRangeList(&part_data);
+
         free(remaining);
     }
 

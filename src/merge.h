@@ -32,11 +32,39 @@ typedef char CidrRecord[CIDR_SIZE];
  * allocated array.
  *
  * @param cidr_list A list of C-strings representing CIDR blocks.
- * @param cidr_records A pointer to an array of `CidrRecord` where the resultant CIDR strings
- *                     will be stored. Memory for this array will be allocated by the function.
  *
  * @return The number of resulting CIDR records stored in the `cidr_records` array.
  */
-size_t merge_cidr(ipRangeList *cidr_list, CidrRecord **cidr_records);
+ipRangeList merge_cidr(const ipRangeList *cidr_list);
+
+
+
+/**
+ * @brief Writes IP ranges in CIDR notation to a file.
+ *
+ * This function iterates over an array of `ipRange` structures, converts each range
+ * into CIDR notation, and writes the CIDR blocks to the specified output file stream.
+ * It returns the total number of CIDR blocks written.
+ *
+ * @param ranges Pointer to an array of `ipRange` structures representing the IP ranges to be written.
+ * @param out The output file stream where the CIDR blocks will be written.
+ *
+ * @return The total number of CIDR blocks written to the file.
+ */
+size_t write_ip_ranges_to_file(const ipRangeList *ranges, FILE *out);
+
+
+/**
+ * @brief Prints IP ranges in CIDR notation to the standard output stream.
+ *
+ * This function is a wrapper around `write_ip_ranges_to_file` that prints the
+ * CIDR blocks to the standard output stream.
+ *
+ * @param ranges Pointer to an array of `ipRange` structures representing the IP ranges to be printed.
+ *
+ * @return The total number of CIDR blocks printed.
+ */
+size_t print_ip_ranges(const ipRangeList *ranges);
+
 
 #endif //MERGE_IP_MERGE_H
