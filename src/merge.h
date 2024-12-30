@@ -35,7 +35,7 @@ typedef char CidrRecord[CIDR_SIZE];
  *
  * @return The number of resulting CIDR records stored in the `cidr_records` array.
  */
-ipRangeList merge_cidr(const ipRangeList *cidr_list);
+ipRangeList *merge_cidr(const ipRangeList *cidr_list);
 
 
 

@@ -173,8 +173,8 @@ void parse_content(const char *content, const regex_t *regex, ipRangeList *range
  *
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
-ipRangeList read_from_stream(FILE *stream) {
-    ipRangeList overall_data = getIpRangeList(MAX_BUFFER_CAPACITY); 
+ipRangeList *read_from_stream(FILE *stream) {
+    ipRangeList *overall_data = getIpRangeList(MAX_BUFFER_CAPACITY);
     char buffer[BUFFER_SIZE] = {0};
     char *remaining = NULL;
     size_t remaining_size = 0;
@@ -206,7 +206,7 @@ ipRangeList read_from_stream(FILE *stream) {
         }
         memcpy(temp_buffer + remaining_size, buffer, buffer_len + 1);
 
-        parse_content(temp_buffer, &regex, &overall_data);
+        parse_content(temp_buffer, &regex, overall_data);
 
         // Find remaining unparsed part
         const char *last_token = temp_buffer + remaining_size + buffer_len;
@@ -228,7 +228,7 @@ ipRangeList read_from_stream(FILE *stream) {
 
     if (remaining != NULL) {
         if (remaining_size > 0) {
-            parse_content(remaining, &regex, &overall_data);
+            parse_content(remaining, &regex, overall_data);
         }
 
         free(remaining);
@@ -251,13 +251,13 @@ ipRangeList read_from_stream(FILE *stream) {
  * @note If the file cannot be opened, the function prints an error message
  *       and exits the program with a failure status.
  */
-ipRangeList read_from_file(const char *filename) {
+ipRangeList *read_from_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Failed to open file");
         exit(EXIT_FAILURE);
     }
-    const ipRangeList data = read_from_stream(file);
+    ipRangeList *data = read_from_stream(file);
     fclose(file);
     return data;
 }
@@ -273,6 +273,6 @@ ipRangeList read_from_file(const char *filename) {
  * @return A ParsedData structure containing the parsed CIDR blocks and their
  *         count.
  */
-ipRangeList read_from_stdin() {
+inline ipRangeList *read_from_stdin() {
     return read_from_stream(stdin);
 }

@@ -151,16 +151,16 @@ void test_merge_cidr(void **state) {
         char *test_cases_buffer = get_buffer(length);
         FILE *stream = get_stream(test_cases_buffer, length);
         write_to_stream(&test_cases[i], stream);
-        ipRangeList range_list = read_from_stream(stream);
+        const ipRangeList *range_list = read_from_stream(stream);
         fclose(stream);
         free(test_cases_buffer);
 
-        const ipRangeList merged_ip_ranges = merge_cidr(&range_list);
+        const ipRangeList *merged_ip_ranges = merge_cidr(range_list);
 
         char *result_buffer = get_buffer(length);
         FILE *result_stream = get_stream(result_buffer, length);
 
-        const size_t count = write_ip_ranges_to_file(&merged_ip_ranges, result_stream);
+        const size_t count = write_ip_ranges_to_file(merged_ip_ranges, result_stream);
         fclose(result_stream);
 
         assert_int_equal(count, test_cases[i].expected_count);

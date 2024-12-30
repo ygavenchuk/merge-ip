@@ -46,7 +46,7 @@ typedef struct {
  *
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
-ipRangeList getIpRangeList(const size_t size);
+ipRangeList *getIpRangeList(const size_t size);
 
 
 /**

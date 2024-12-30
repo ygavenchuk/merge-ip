@@ -32,17 +32,25 @@
  *
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
-ipRangeList getIpRangeList(const size_t size) {
-    ipRangeList data = {
-        .cidrs=malloc(sizeof(ipRange*) * size),
-        .length=0,
-        .capacity=size
-    };
-
-    if (!data.cidrs) {
-        perror("Failed to allocate CIDR buffer");
+ipRangeList *getIpRangeList(const size_t size) {
+    ipRangeList *data = malloc(sizeof(ipRangeList));
+    if (!data) {
+        perror("Failed to allocate ipRangeList");
         exit(EXIT_FAILURE);
     }
+
+    if (size > 0) {
+        data->cidrs = malloc(sizeof(ipRange) * size);
+        if (!data->cidrs) {
+            perror("Failed to allocate CIDR buffer");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        data->cidrs = NULL;
+    }
+
+    data->length = 0;
+    data->capacity = size;
 
     return data;
 }
@@ -57,10 +65,11 @@ ipRangeList getIpRangeList(const size_t size) {
  *             needs to be freed.
  */
 inline void freeIpRangeList(ipRangeList *data) {
-    free(data->cidrs);
-    data->cidrs = NULL;
-    data->length = 0;
-    data->capacity = 0;
+    if (data->cidrs != NULL) {
+        free(data->cidrs);
+        data->cidrs = NULL;
+    }
+    free(data);
 }
 
 /**

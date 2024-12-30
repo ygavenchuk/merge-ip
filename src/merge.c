@@ -81,22 +81,22 @@ int compare_ip_ranges(const void *a, const void *b) {
  * @param rawRanges An array of `ipRange` structures representing the IP ranges to be merged.
  * @return The number of merged IP ranges stored in the `result` array.
  */
-ipRangeList merge_ip_ranges(const ipRangeList *rawRanges) {
+ipRangeList *merge_ip_ranges(const ipRangeList *rawRanges) {
+    ipRangeList *result = getIpRangeList(rawRanges->length);
     if (rawRanges->length == 0) {
-        return (ipRangeList){NULL, 0, 0};
+        return result;
     }
 
-    ipRangeList result = getIpRangeList(rawRanges->length);
     ipRange current = rawRanges->cidrs[0];
 
     if (current.max_ip.s_addr == ALL_ONES) {
-        appendIpRange(&result, &current);
+        appendIpRange(result, &current);
         return result;
     }
 
     for (size_t i = 1; i < rawRanges->length; ++i) {
         if (rawRanges->cidrs[i].max_ip.s_addr == ALL_ONES) {
-            appendIpRange(&result, &(ipRange){.min_ip = current.min_ip, .max_ip = {ALL_ONES}});
+            appendIpRange(result, &(ipRange){.min_ip = current.min_ip, .max_ip = {ALL_ONES}});
             return result;
         }
 
@@ -105,17 +105,17 @@ ipRangeList merge_ip_ranges(const ipRangeList *rawRanges) {
                 current.max_ip = rawRanges->cidrs[i].max_ip;
             }
         } else {
-            appendIpRange(&result, &current);
+            appendIpRange(result, &current);
             current = rawRanges->cidrs[i];
         }
     }
 
-    if (result.length) {
-        if (result.cidrs[result.length - 1].max_ip.s_addr != current.max_ip.s_addr) {
-            result.cidrs[result.length++] = current;
+    if (result->length) {
+        if (result->cidrs[result->length - 1].max_ip.s_addr != current.max_ip.s_addr) {
+            result->cidrs[result->length++] = current;
         }
     } else {
-        result.cidrs[result.length++] = current;
+        result->cidrs[result->length++] = current;
     }
 
     return result;
@@ -221,7 +221,7 @@ size_t print_ip_ranges(const ipRangeList *ranges) {
  *
  * @return The number of resulting CIDR records stored in the `cidr_records` array.
  */
-ipRangeList merge_cidr(const ipRangeList *cidr_list) {
+ipRangeList *merge_cidr(const ipRangeList *cidr_list) {
     // Sort input CIDRs
     qsort(cidr_list->cidrs, cidr_list->length, sizeof(ipRange), compare_ip_ranges);
     return merge_ip_ranges(cidr_list);
