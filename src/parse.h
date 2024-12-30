@@ -35,7 +35,7 @@
  *
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
-ipRangeList read_from_stream(FILE *stream);
+ipRangeList *read_from_stream(FILE *stream);
 
 /**
  * Reads and parses data from standard input (stdin).
@@ -47,7 +47,7 @@ ipRangeList read_from_stream(FILE *stream);
  * @return A ParsedData structure containing the parsed CIDR blocks and their
  *         count.
  */
-ipRangeList read_from_stdin();
+ipRangeList *read_from_stdin();
 
 /**
  * Reads and parses data from standard input (stdin).
@@ -59,6 +59,6 @@ ipRangeList read_from_stdin();
  * @return A ParsedData structure containing the parsed CIDR blocks and their
  *         count.
  */
-ipRangeList read_from_file(const char *filename);
+ipRangeList *read_from_file(const char *filename);
 
 #endif //MERGE_IP_PARSE_H

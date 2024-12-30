@@ -40,7 +40,7 @@
  */
 int main(const int argc, char *argv[]) {
     const CommandLineOptions options = parse_command_line_options(argc, argv);
-    ipRangeList ip_range_list;
+    ipRangeList *ip_range_list = NULL;
 
     if (options.file) {
         if (options.debug) {
@@ -54,10 +54,10 @@ int main(const int argc, char *argv[]) {
         ip_range_list = read_from_stdin();
     }
 
-    ipRangeList merged_ip_range = merge_cidr(&ip_range_list);
-    freeIpRangeList(&ip_range_list);
-    const size_t total_merged_cidrs = print_ip_ranges(&merged_ip_range);
-    freeIpRangeList(&merged_ip_range);
+    ipRangeList *merged_ip_range = merge_cidr(ip_range_list);
+    freeIpRangeList(ip_range_list);
+    const size_t total_merged_cidrs = print_ip_ranges(merged_ip_range);
+    freeIpRangeList(merged_ip_range);
     if (total_merged_cidrs > 0) {
         if (options.debug) {
             printf("DEBUG: Merged IP ranges in the CIDR format (total: %zu)\n", total_merged_cidrs);
