@@ -19,13 +19,27 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-void test_merge_cidr(void **state);
 void test_parse_command_line_options(void **state);
+void test_empty_data_set(void **state);
+void test_noise_data_set(void **state);
+void test_merge_cidr_separated_by_new_line(void **state);
+void test_merge_cidr_separated_by_space(void **state);
+void test_merge_cidr_separated_by_tab(void **state);
+void test_reading_buffer_captures_only_host_part_of_tailing_cidr(void **state);
+void test_reading_buffer_captures_broken_part_of_tailing_cidr(void **state);
+void test_reading_buffer_captures_oly_part_of_tailing_cidr_prefix(void **state);
 
 int main(void) {
     const struct CMUnitTest tests[] = {
-            cmocka_unit_test(test_merge_cidr),
             cmocka_unit_test(test_parse_command_line_options),
+            cmocka_unit_test(test_empty_data_set),
+            cmocka_unit_test(test_noise_data_set),
+            cmocka_unit_test(test_merge_cidr_separated_by_new_line),
+            cmocka_unit_test(test_merge_cidr_separated_by_space),
+            cmocka_unit_test(test_merge_cidr_separated_by_tab),
+            cmocka_unit_test(test_reading_buffer_captures_only_host_part_of_tailing_cidr),
+            cmocka_unit_test(test_reading_buffer_captures_broken_part_of_tailing_cidr),
+            cmocka_unit_test(test_reading_buffer_captures_oly_part_of_tailing_cidr_prefix),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

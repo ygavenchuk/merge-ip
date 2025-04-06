@@ -16,9 +16,7 @@
 file(GLOB HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 file(GLOB SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_definitions(-Ofast)
-elseif (CMAKE_BUILD_TYPE STREQUAL "Asan")
+if (CMAKE_BUILD_TYPE STREQUAL "Asan")
     add_definitions(
             -g
             -O1
