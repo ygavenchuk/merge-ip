@@ -352,12 +352,13 @@ void test_reading_buffer_captures_only_host_part_of_tailing_cidr(void **state) {
 }
 
 void test_reading_buffer_captures_broken_part_of_tailing_cidr(void **state) {
-    // i.e. something like "192.168." or "192.168.1.0/" - those values
+    // i.e. something like "192.168.0." or "192.168.1.0/" - those values
     // for sure cannot be considered as valid CIDRs
-    merge_cidr_separated_by_page(1000);
+    merge_cidr_separated_by_page(1000); // 192.168.1.
+    merge_cidr_separated_by_page(998);  // 192.168.1.0/
 }
 
-void test_reading_buffer_captures_oly_part_of_tailing_cidr_prefix(void **state) {
+void test_reading_buffer_captures_only_part_of_tailing_cidr_prefix(void **state) {
     // attempt to emulate case when due to buffer size a reading loop
     // cuts only part of the prefix in the last CIDR block, in other words
     // the prefix contains 2 digits, but buffer caught only first one
@@ -365,5 +366,5 @@ void test_reading_buffer_captures_oly_part_of_tailing_cidr_prefix(void **state) 
     // assuming buffer size is `1024`, we need to put 1001 symbols as a
     // separator between CIDRs
     // BUFFER_SIZE - strlen("192.168.0.0/24") + strlen("192.168.1.0/2") == 999
-    merge_cidr_separated_by_page(1001);
+    merge_cidr_separated_by_page(997);
 }

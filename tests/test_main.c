@@ -27,7 +27,7 @@ void test_merge_cidr_separated_by_space(void **state);
 void test_merge_cidr_separated_by_tab(void **state);
 void test_reading_buffer_captures_only_host_part_of_tailing_cidr(void **state);
 void test_reading_buffer_captures_broken_part_of_tailing_cidr(void **state);
-void test_reading_buffer_captures_oly_part_of_tailing_cidr_prefix(void **state);
+void test_reading_buffer_captures_only_part_of_tailing_cidr_prefix(void **state);
 
 int main(void) {
     const struct CMUnitTest tests[] = {
@@ -39,7 +39,7 @@ int main(void) {
             cmocka_unit_test(test_merge_cidr_separated_by_tab),
             cmocka_unit_test(test_reading_buffer_captures_only_host_part_of_tailing_cidr),
             cmocka_unit_test(test_reading_buffer_captures_broken_part_of_tailing_cidr),
-            cmocka_unit_test(test_reading_buffer_captures_oly_part_of_tailing_cidr_prefix),
+            cmocka_unit_test(test_reading_buffer_captures_only_part_of_tailing_cidr_prefix),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
