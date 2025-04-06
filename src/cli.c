@@ -20,6 +20,8 @@
 
 #include "cli.h"
 
+#include "main.h"
+
 /**
  * @brief Prints the usage message for the program.
  *
@@ -31,7 +33,8 @@
  */
 void print_usage(const char *program_name) {
     printf(
-            "Usage: %s [-f filename | --file=filename] [-d | --debug] [-h | --help]\n"
+            "Usage: %s [-f filename | --file=filename] [-d | --debug] [-h | --help] "
+            "[-v | --version]\n"
             "\nThe program takes CIDRs from the input (stdin or given file), sorts them,\n"
             "removes duplicates, merges adjacent blocks into one continuous sequence and\n"
             "prints result\n"
@@ -41,7 +44,8 @@ void print_usage(const char *program_name) {
             "                       input (stdin).\n"
             "  -d, --debug          Enables debug mode, printing additional debug\n"
             "                       information during execution.\n"
-            "  -h, --help           Displays this help message and exits.\n",
+            "  -h, --help           Displays this help message and exits.\n"
+            "  -v, --version        Displays the program version and exits.\n",
             program_name
     );
 }
@@ -77,6 +81,9 @@ CommandLineOptions parse_command_line_options(int argc, char *argv[]) {
             options.debug = true;
         } else if ((strcmp(argv[i], "-f") == 0 && i + 1 < argc) || strncmp(argv[i], "--file=", 7) == 0) {
             options.file = (strcmp(argv[i], "-f") == 0) ? argv[++i] : argv[i] + 7;
+        } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+            printf("%s version %s\n", PROGRAM_NAME, VERSION);
+            exit(0);
         } else {
             fprintf(stderr, "Unknown option or incorrect usage.\n");
             print_usage(argv[0]);
