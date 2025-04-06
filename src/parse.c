@@ -16,6 +16,7 @@
 
 #include <errno.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +27,7 @@
 
 #define BUFFER_SIZE 1024
 // strlen("255.255.255.255/255.255.255.255") + '\0'
-#define CIDR_MAX_LENGTH 32
+#define CIDR_MAX_LENGTH 32  // 3 for "/32" and 1 for '\0'
 // strlen("1.1.1.1/0") + '\0'
 #define CIDR_MIN_LENGTH 10
 // The buffer may contain a limited number of records. In the limiting case there cannot be more than
@@ -88,6 +89,53 @@ int parse_cidr(const char *cidr, ipRange *range) {
 
 
 /**
+ * @brief Checks if the given CIDR block is a pure IP, without prefix
+ *
+ * This function checks if the provided CIDR block string contains a prefix
+ * (e.g., "/24"). If the CIDR block does not contain a prefix, it returns true.
+ *
+ * @param cidr The CIDR block string to check.
+ *
+ * @return true if the CIDR block does not have a prefix; false otherwise.
+ */
+bool is_host(const char* cidr) {
+    return strchr(cidr, '/') == NULL;
+}
+
+/**
+ * @brief Adds the "/32" prefix to the given CIDR block string, assuming it is a host.
+ *
+ * This function appends "/32" to the provided CIDR block string assuming it does not
+ * already contain a prefix. The function modifies the original string in place.
+ *
+ * @param cidr The CIDR block string to which the prefix will be added.
+ *
+ */
+void add_prefix(char* cidr) {
+    const unsigned char length = (unsigned char)strlen(cidr); // max CIDR length is 32, which is less than 255
+
+    if (snprintf(cidr, length + 4, "%s/32", cidr) != length + 3) {  // without tailing '\0'
+        perror("Failed to append CIDR prefix");
+        exit(EXIT_FAILURE);
+    }
+}
+
+/**
+ * @brief Ensures that the given CIDR block string has a prefix.
+ *
+ * This function checks if the provided CIDR block string is a host (without a prefix).
+ * If it is, it appends "/32" to the CIDR block string. The function modifies the original string in place.
+ *
+ * @param cidr The CIDR block string to check and potentially modify.
+ */
+void ensure_prefix(char* cidr) {
+    if (is_host(cidr)) {
+        add_prefix(cidr);
+    }
+}
+
+
+/**
  * @brief Parses content for CIDR blocks defined by the given regular expression
  * and returns the parsed data.
  *
@@ -100,13 +148,13 @@ int parse_cidr(const char *cidr, ipRange *range) {
  * @param regex A precompiled regular expression to identify CIDR blocks.
  * @param range_list A pointer to the ipRangeList structure to store the extracted CIDR blocks.
  *
- * @return A ParsedData structure containing the extracted CIDR blocks and their count.
+ * @return The number of characters parsed from the input string
  *
  * @note If memory allocation fails, the function prints an error message and
  *       exits the program.
  */
-void parse_content(const char *content, const regex_t *regex, ipRangeList *range_list) {
-    regmatch_t matches[2];
+size_t parse_content(const char *content, const regex_t *regex, ipRangeList *range_list, bool ignore_tails) {
+    regmatch_t matches[6];
 
     ipRange *ip_range = malloc(sizeof(ipRange));
     if (!ip_range) {
@@ -114,47 +162,36 @@ void parse_content(const char *content, const regex_t *regex, ipRangeList *range
         exit(EXIT_FAILURE);
     }
 
-    char *cidr = malloc(CIDR_MAX_LENGTH);
-    if (!cidr) {
-        perror("Failed to allocate CIDR");
-        exit(EXIT_FAILURE);
-    }
+    size_t cidr_end = 0;
+    const size_t content_length = (size_t)strlen(content);
+    size_t parsed_length = 0;
+    while (regexec(regex, content, 6, matches, 0) == 0) {
+        const size_t cidr_start = matches[1].rm_so;
+        cidr_end = matches[1].rm_eo;
+        const unsigned char cidr_length = (unsigned char)(cidr_end - cidr_start);
+        const size_t token_end = matches[5].rm_eo; // position of the last matched token (CIDR + whitespaces)
+        parsed_length += token_end;
 
-    char *cidr_with_prefix = malloc(CIDR_MAX_LENGTH); // 3 for "/32" and 1 for '\0'
-    if (!cidr_with_prefix) {
-        perror("Failed to allocate CIDR with prefix");
-        exit(EXIT_FAILURE);
-    }
-
-    while (regexec(regex, content, 2, matches, 0) == 0) {
-        const long long start = matches[1].rm_so;
-        const long long end = matches[1].rm_eo;
-        const long long length = end - start;
-
-        memset(cidr, 0, CIDR_MAX_LENGTH);
-        memset(cidr_with_prefix, 0, CIDR_MAX_LENGTH);
-        strncpy(cidr, content + start, length);
-        cidr[length] = '\0';
-
-        // Add `/32` prefix for "pure" IPv4
-        if (strchr(cidr, '/') == NULL) {
-            if (snprintf(cidr_with_prefix, length + 4, "%s/32", cidr) != length + 3) {  // without tailing '\0'
-                perror("Failed to append CIDR prefix");
-                exit(EXIT_FAILURE);
-            }
-            strncpy(cidr, cidr_with_prefix, length + 4);
+        if (ignore_tails && parsed_length == content_length && !isspace(content[cidr_end])) {
+            parsed_length += cidr_start - token_end;
+            break;
         }
+
+        char cidr[CIDR_MAX_LENGTH] = {0};
+        strncpy(cidr, content + cidr_start, cidr_length);
+
+        ensure_prefix(cidr);
 
         if (parse_cidr(cidr, ip_range) == 0) {
             appendIpRange(range_list, ip_range);
         }
 
-        content += end;
+        content += token_end;
     }
 
-    free(cidr);
-    free(cidr_with_prefix);
     free(ip_range);
+
+    return parsed_length;
 }
 
 
@@ -175,23 +212,25 @@ void parse_content(const char *content, const regex_t *regex, ipRangeList *range
  */
 ipRangeList *read_from_stream(FILE *stream) {
     ipRangeList *overall_data = getIpRangeList(MAX_BUFFER_CAPACITY);
-    char buffer[BUFFER_SIZE] = {0};
     char *remaining = NULL;
     size_t remaining_size = 0;
 
-    const char *CIDR_PATTERN = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)";
+    // surprisingly the `regex_t` doesn't capture space symbols by the `\s`
+    // so I have to explicitly list them in the pattern
+    const char *CIDR_PATTERN = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)([ \t\n\r\v\f]*)";
     regex_t regex;
-    if (regcomp(&regex, CIDR_PATTERN, REG_EXTENDED)) {
+    if (regcomp(&regex, CIDR_PATTERN, REG_EXTENDED | REG_NEWLINE)) {
         fprintf(stderr, "Failed to compile regex.\n");
         exit(EXIT_FAILURE);
     }
 
-    // using `fread()` here gives a bit different result in some cases. There's a risk of bug, presumably at the stage
-    // of processing a reminder. Needs additional investigation!
-    //
-    // while (fread(buffer, 1, sizeof(buffer), stream)) {
-    while (fgets(buffer, sizeof(buffer), stream)) {
-        const size_t buffer_len = strlen(buffer);
+    char buffer[BUFFER_SIZE] = {0};
+    // `fread()` doesn't automatically add '\0' at the end of the buffer,
+    // so we have to read 1 symbol less
+    size_t read_size = 0;
+    while ( (read_size = fread(buffer, sizeof(char), sizeof(buffer) - 1, stream)) ) {
+        buffer[read_size] = '\0';   // a hit/hack for `strlen()`
+        const size_t buffer_len = (size_t)strlen(buffer);
 
         // todo: minimize number of allocations
         // Allocate memory for the temporary buffer
@@ -203,24 +242,23 @@ ipRangeList *read_from_stream(FILE *stream) {
 
         if (remaining) {
             memcpy(temp_buffer, remaining, remaining_size);
+        } else {
+            temp_buffer[0] = 0;
         }
-        memcpy(temp_buffer + remaining_size, buffer, buffer_len + 1);
 
-        parse_content(temp_buffer, &regex, overall_data);
+        memcpy(temp_buffer + strlen(temp_buffer), buffer, buffer_len + 1);
+
+        const size_t parsed_chars = parse_content(temp_buffer, &regex, overall_data, true);
 
         // Find remaining unparsed part
-        const char *last_token = temp_buffer + remaining_size + buffer_len;
-        while (last_token > temp_buffer && !isspace(*last_token)) {
-            last_token--;
-        }
-        remaining_size = temp_buffer + remaining_size + buffer_len - last_token;
+        remaining_size = remaining_size + buffer_len + 1 - parsed_chars;
 
         if ((remaining = (char *)realloc(remaining, remaining_size + 1)) == NULL) {
             perror("Failed to reallocate CIDR range buffer");
             exit(EXIT_FAILURE);
         }
 
-        memcpy(remaining, last_token, remaining_size);
+        memcpy(remaining, temp_buffer + parsed_chars, remaining_size);
         remaining[remaining_size] = '\0';
 
         free(temp_buffer);
@@ -228,7 +266,7 @@ ipRangeList *read_from_stream(FILE *stream) {
 
     if (remaining != NULL) {
         if (remaining_size > 0) {
-            parse_content(remaining, &regex, overall_data);
+            parse_content(remaining, &regex, overall_data, false);
         }
 
         free(remaining);

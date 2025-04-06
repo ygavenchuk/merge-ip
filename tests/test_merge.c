@@ -27,6 +27,10 @@
 #include "parse.h"
 #include "ipRange.h"
 
+const char ALPHA_NUMERIC[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+// because SEPARATORS does not contain dots (`.`) nor colons (`:`) the `get_random_phrase()` function
+// will never generate CIDR blocks with the correct format!
+const char SEPARATORS[] = " \t\n\r\v\f-_()[]\\/;,%$@!&$%*+=~`\"'<>?";
 
 typedef struct {
     const char **input_cidr_list;
@@ -61,7 +65,7 @@ const TestCase test_cases[] = {
             "10.10.0.0/24",  "10.10.1.0/24",  "192.168.100.0/22", "10.10.2.0/24",     "10.10.3.0/28",
             "10.10.3.16/28", "10.10.3.32/28", "172.31.0.0/16",    "10.10.3.0/25",     "10.10.4.0/24",
             "10.11.0.0/16",  "172.31.1.1",    "10.10.3.128/25",   "192.168.104.0/22", "172.16.0.0/12",
-            "172.31.1.0/24", "192.168.100.5",
+            "172.31.1.0/24", "192.168.100.5", "192.168.100.105/255.255.255.255",
         },
         .input_count = 17,
         .expected_cidr_list = "10.10.0.0/22\n"
@@ -222,8 +226,7 @@ void test_merge_cidr_separated_by_tab(void **state) {
     }
 }
 
-void test_merge_cidr_separated_by_page(void **state) {
-    const unsigned int page_size = 1000;
+void merge_cidr_separated_by_page(const size_t page_size) {
     char empty_page[page_size];
     memset(empty_page, ' ', page_size - 1);
     empty_page[page_size - 1] = '\0';
@@ -236,4 +239,131 @@ void test_merge_cidr_separated_by_page(void **state) {
 
         free((void*)merged_test_case.result);
     }
+}
+
+void test_empty_data_set(void **state) {
+    const size_t page_size = 1200;
+
+    char empty_page[page_size];
+    memset(empty_page, ' ', page_size - 1);
+    empty_page[page_size - 1] = '\0';
+
+    const size_t max_buffer_length = page_size + 1;
+
+    TestDataStream data_stream;
+    open_stream(&data_stream, max_buffer_length);
+    fprintf(data_stream.stream, "%s", empty_page);
+
+    const ipRangeList *range_list = read_from_stream(data_stream.stream);
+    close_stream(&data_stream);
+
+    const ipRangeList *merged_ip_ranges = merge_cidr(range_list);
+
+    TestDataStream result_stream;
+    open_stream(&result_stream, max_buffer_length);
+
+    const size_t count = write_ip_ranges_to_file(merged_ip_ranges, result_stream.stream);
+    fclose(result_stream.stream);
+
+    assert_int_equal(count, 0);
+    assert_string_equal(result_stream.buffer, "");
+
+    free((void*)result_stream.buffer);
+}
+
+char* get_random_word(const size_t length) {
+    char *word = malloc(length + 1);
+    if (!word) {
+        fprintf(stderr, "Failed to allocate memory for random word\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (size_t i = 0; i < length; i++) {
+        word[i] = ALPHA_NUMERIC[rand() % (sizeof(ALPHA_NUMERIC) - 1)];
+    }
+    word[length] = '\0';
+
+    return word;
+}
+
+char* get_random_text(const size_t length) {
+    char *phrase = malloc(length + 1);
+    if (!phrase) {
+        fprintf(stderr, "Failed to allocate memory for random text\n");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t current_length = 0;
+    while (current_length < length) {
+        const size_t word_length = rand() % (length - current_length) + 1;
+        const char *word = get_random_word(word_length);
+
+        for (size_t i = 0; i < word_length && current_length < length; i++) {
+            phrase[current_length++] = word[i];
+        }
+
+        if (current_length < length) {
+            phrase[current_length++] = SEPARATORS[ rand() % (sizeof(SEPARATORS) - 1) ];
+        }
+
+        free((char*)word);
+    }
+
+    phrase[length] = '\0';
+    return phrase;
+}
+
+void test_noise_data_set(void **state) {
+    const size_t page_size = 4242;
+    const char* noise_data = get_random_text(page_size);
+    const size_t max_buffer_length = page_size + 1;
+
+    TestDataStream data_stream;
+    open_stream(&data_stream, max_buffer_length);
+    fprintf(data_stream.stream, "%s", noise_data);
+    free((void*)noise_data);
+
+    const ipRangeList *range_list = read_from_stream(data_stream.stream);
+    close_stream(&data_stream);
+
+    const ipRangeList *merged_ip_ranges = merge_cidr(range_list);
+
+    TestDataStream result_stream;
+    open_stream(&result_stream, max_buffer_length);
+
+    const size_t count = write_ip_ranges_to_file(merged_ip_ranges, result_stream.stream);
+    fclose(result_stream.stream);
+
+    assert_int_equal(count, 0);
+    assert_string_equal(result_stream.buffer, "");
+
+    free((void*)result_stream.buffer);
+}
+
+
+void test_reading_buffer_captures_only_host_part_of_tailing_cidr(void **state) {
+    // attempt to emulate case when due to buffer size a reading loop
+    // cuts only host part of the last CIDR block, while there's a prefix
+    //
+    // assuming buffer size is `1024`, we need to put 999 symbols as a
+    // separator between CIDRs
+    // BUFFER_SIZE - strlen("192.168.0.0/24") + strlen("192.168.1.0") == 999
+    merge_cidr_separated_by_page(999);
+}
+
+void test_reading_buffer_captures_broken_part_of_tailing_cidr(void **state) {
+    // i.e. something like "192.168." or "192.168.1.0/" - those values
+    // for sure cannot be considered as valid CIDRs
+    merge_cidr_separated_by_page(1000);
+}
+
+void test_reading_buffer_captures_oly_part_of_tailing_cidr_prefix(void **state) {
+    // attempt to emulate case when due to buffer size a reading loop
+    // cuts only part of the prefix in the last CIDR block, in other words
+    // the prefix contains 2 digits, but buffer caught only first one
+    //
+    // assuming buffer size is `1024`, we need to put 1001 symbols as a
+    // separator between CIDRs
+    // BUFFER_SIZE - strlen("192.168.0.0/24") + strlen("192.168.1.0/2") == 999
+    merge_cidr_separated_by_page(1001);
 }
