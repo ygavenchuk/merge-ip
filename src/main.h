@@ -16,7 +16,7 @@
 
 #pragma once
 
-#define VERSION "0.0.2"
+#define VERSION "0.0.3"
 #define PROGRAM_NAME "merge-ip"
 #define PROGRAM_COPYRIGHT "Copyright 2024 Yurii Havenchuk"
 #define PROGRAM_LICENSE "Apache License, Version 2.0"

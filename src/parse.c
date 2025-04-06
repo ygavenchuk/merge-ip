@@ -28,8 +28,8 @@
 #define BUFFER_SIZE 1024
 // strlen("255.255.255.255/255.255.255.255") + '\0'
 #define CIDR_MAX_LENGTH 32  // 3 for "/32" and 1 for '\0'
-// strlen("1.1.1.1/0") + '\0'
-#define CIDR_MIN_LENGTH 10
+// strlen("1.1.1.1")
+#define CIDR_MIN_LENGTH 7
 // The buffer may contain a limited number of records. In the limiting case there cannot be more than
 // ceil(BUFFER_SIZE / (CIDR_MIN_LENGTH + 1) )
 // Here:
@@ -172,7 +172,7 @@ size_t parse_content(const char *content, const regex_t *regex, ipRangeList *ran
         const size_t token_end = matches[5].rm_eo; // position of the last matched token (CIDR + whitespaces)
         parsed_length += token_end;
 
-        if (ignore_tails && parsed_length == content_length && !isspace(content[cidr_end])) {
+        if (ignore_tails && parsed_length >= content_length - CIDR_MIN_LENGTH && !isspace(content[cidr_end])) {
             parsed_length += cidr_start - token_end;
             break;
         }
