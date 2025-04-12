@@ -102,6 +102,7 @@ bool is_host(const char* cidr) {
     return strchr(cidr, '/') == NULL;
 }
 
+
 /**
  * @brief Adds the "/32" prefix to the given CIDR block string, assuming it is a host.
  *
@@ -120,6 +121,7 @@ void add_prefix(char* cidr) {
     }
 }
 
+
 /**
  * @brief Ensures that the given CIDR block string has a prefix.
  *
@@ -132,6 +134,37 @@ void ensure_prefix(char* cidr) {
     if (is_host(cidr)) {
         add_prefix(cidr);
     }
+}
+
+
+/**
+ * @brief Moves the reminder part of the buffer to the start and zeroes out the rest.
+ *
+ * This function takes a buffer and a starting position. It moves the content of the buffer
+ * starting from the given position to the beginning of the buffer and zeroes out the rest.
+ *
+ * @param buffer The buffer to be modified.
+ * @param reminder_start_pos The starting position from which to move content.
+ *
+ * @return The length of the moved fragment.
+ */
+size_t move_reminder_to_start(char *buffer, const size_t reminder_start_pos) {
+    size_t buffer_size = strlen(buffer);
+    if (reminder_start_pos >= buffer_size) {
+        // If start_pos is out of bounds, zero the entire buffer
+        memset(buffer, 0, buffer_size);
+        return 0;
+    }
+    // Calculate the length of the fragment to move
+    size_t fragment_length = buffer_size - reminder_start_pos;
+
+    // Move the fragment to the beginning of the buffer
+    memmove(buffer, buffer + reminder_start_pos, fragment_length);
+
+    // Zero out the rest of the buffer
+    memset(buffer + fragment_length, 0, buffer_size - fragment_length);
+
+    return fragment_length;
 }
 
 
@@ -211,11 +244,9 @@ size_t parse_content(const char *content, const regex_t *regex, ipRangeList *ran
  * @note If memory allocation fails, the function prints an error message and exits the program.
  */
 ipRangeList *read_from_stream(FILE *stream) {
-    ipRangeList *overall_data = getIpRangeList(MAX_BUFFER_CAPACITY);
-    char *remaining = NULL;
-    size_t remaining_size = 0;
+    ipRangeList *ip_range_list = getIpRangeList(MAX_BUFFER_CAPACITY);
 
-    // surprisingly the `regex_t` doesn't capture space symbols by the `\s`
+    // surprisingly the `regex_t` doesn't capture space symbols by the `\s`,
     // so I have to explicitly list them in the pattern
     const char *CIDR_PATTERN = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)([ \t\n\r\v\f]*)";
     regex_t regex;
@@ -227,55 +258,21 @@ ipRangeList *read_from_stream(FILE *stream) {
     char buffer[BUFFER_SIZE] = {0};
     // `fread()` doesn't automatically add '\0' at the end of the buffer,
     // so we have to read 1 symbol less
-    size_t read_size = 0;
-    while ( (read_size = fread(buffer, sizeof(char), sizeof(buffer) - 1, stream)) ) {
-        buffer[read_size] = '\0';   // a hit/hack for `strlen()`
-        const size_t buffer_len = (size_t)strlen(buffer);
-
-        // todo: minimize number of allocations
-        // Allocate memory for the temporary buffer
-        char *temp_buffer = malloc(remaining_size + buffer_len + 1);
-        if (!temp_buffer) {
-            perror("Failed to allocate CIDR range temporary buffer");
-            exit(EXIT_FAILURE);
-        }
-
-        if (remaining) {
-            memcpy(temp_buffer, remaining, remaining_size);
-        } else {
-            temp_buffer[0] = 0;
-        }
-
-        memcpy(temp_buffer + strlen(temp_buffer), buffer, buffer_len + 1);
-
-        const size_t parsed_chars = parse_content(temp_buffer, &regex, overall_data, true);
-
-        // Find remaining unparsed part
-        remaining_size = remaining_size + buffer_len + 1 - parsed_chars;
-
-        if ((remaining = (char *)realloc(remaining, remaining_size + 1)) == NULL) {
-            perror("Failed to reallocate CIDR range buffer");
-            exit(EXIT_FAILURE);
-        }
-
-        memcpy(remaining, temp_buffer + parsed_chars, remaining_size);
-        remaining[remaining_size] = '\0';
-
-        free(temp_buffer);
+    size_t reminder_size = 0;
+    while ( fread(buffer + reminder_size, sizeof(char), BUFFER_SIZE - reminder_size - 1, stream) ) {
+        const size_t parsed_chars = parse_content(buffer, &regex, ip_range_list, true);
+        reminder_size = move_reminder_to_start(buffer, parsed_chars);
     }
 
-    if (remaining != NULL) {
-        if (remaining_size > 0) {
-            parse_content(remaining, &regex, overall_data, false);
-        }
-
-        free(remaining);
+    if (reminder_size) {
+        parse_content(buffer + reminder_size, &regex, ip_range_list, false);
     }
 
     regfree(&regex);
 
-    return overall_data;
+    return ip_range_list;
 }
+
 
 /**
  * Reads the content of a file specified by 'filename' and parses its data.
