@@ -115,10 +115,10 @@ bool is_host(const char* cidr) {
 void add_prefix(char* cidr) {
     const unsigned char length = (unsigned char)strlen(cidr); // max CIDR length is 32, which is less than 255
 
-    if (snprintf(cidr, length + 4, "%s/32", cidr) != length + 3) {  // without tailing '\0'
-        perror("Failed to append CIDR prefix");
-        exit(EXIT_FAILURE);
-    }
+    cidr[length + 1] = '/';
+    cidr[length + 2] = '3';
+    cidr[length + 3] = '2';
+    cidr[length + 4] = 0;
 }
 
 
