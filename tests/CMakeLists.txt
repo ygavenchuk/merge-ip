@@ -22,6 +22,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cmocka)
 
+# Enable CTest
+include(CTest)
+
 # Test sources
 file(GLOB TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test_*.c")
 add_executable(
@@ -40,5 +43,4 @@ target_link_libraries(merge-ip_tests PRIVATE cmocka::cmocka ${SOURCES})
 add_test(NAME merge-ip_tests COMMAND merge-ip_tests)
 
 # Additional test options
-enable_testing()
 add_custom_target(tests COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure)
