@@ -20,7 +20,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Asan")
     add_definitions(
             -g
             -O1
-            -Wno-unused-parameter
             -Wall
             -Werror
             -Wextra
@@ -33,13 +32,17 @@ if (CMAKE_BUILD_TYPE STREQUAL "Asan")
 else ()
     add_definitions(
         -g
-        -Wno-unused-parameter
         -Wall
         -Werror
         -Wextra
         -fno-omit-frame-pointer
     )
 endif()
+
+if(NOT WIN32)
+    add_definitions(-Wno-unused-parameter)
+endif ()
+
 
 add_executable(merge-ip ${HEADERS} ${SOURCES})
 
