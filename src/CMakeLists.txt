@@ -42,3 +42,11 @@ else ()
 endif()
 
 add_executable(merge-ip ${HEADERS} ${SOURCES})
+
+include(CheckFunctionExists)
+CHECK_FUNCTION_EXISTS(log2 HAS_LOG2)
+CHECK_FUNCTION_EXISTS(fmin HAS_FMIN)
+
+if(NOT HAS_LOG2 OR NOT HAS_FMIN)
+    target_link_libraries(merge-ip PRIVATE m)
+endif()

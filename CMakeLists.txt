@@ -19,7 +19,6 @@ project(merge-ip C)
 set(CMAKE_C_STANDARD 11)
 
 enable_testing()
-add_link_options(-lm)
 add_subdirectory(src)
 add_subdirectory(tests)
 
