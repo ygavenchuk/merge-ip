@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-#include <regex.h>
+#ifdef _WIN32
+  #include <regex>
+#else
+  #include <regex.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>

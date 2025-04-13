@@ -48,6 +48,10 @@ if(NOT HAS_LOG2 OR NOT HAS_FMIN)
     target_link_libraries(merge-ip_tests PRIVATE m)
 endif()
 
+if(WIN32)
+    target_link_libraries(merge-ip PRIVATE PCRE::PCRE)
+endif()
+
 add_test(NAME merge-ip_tests COMMAND merge-ip_tests)
 
 # Additional test options

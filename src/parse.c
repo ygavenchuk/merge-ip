@@ -21,7 +21,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <regex.h>
+
+#ifdef _WIN32
+  #include <regex>
+#else
+  #include <regex.h>
+#endif
 
 #include "parse.h"
 

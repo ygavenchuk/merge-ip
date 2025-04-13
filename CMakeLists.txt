@@ -18,6 +18,21 @@ project(merge-ip C)
 
 set(CMAKE_C_STANDARD 11)
 
+if(WIN32)
+    find_package(PCRE QUIET)
+
+    if (NOT PCRE_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+                PCRE
+                GIT_REPOSITORY https://github.com/PCRE2Project/pcre2.git
+                GIT_TAG pcre2-10.45
+        )
+        FetchContent_MakeAvailable(PCRE)
+    endif()
+endif()
+
+
 enable_testing()
 add_subdirectory(src)
 add_subdirectory(tests)

@@ -53,3 +53,7 @@ CHECK_FUNCTION_EXISTS(fmin HAS_FMIN)
 if(NOT HAS_LOG2 OR NOT HAS_FMIN)
     target_link_libraries(merge-ip PRIVATE m)
 endif()
+
+if(WIN32)
+    target_link_libraries(merge-ip PRIVATE PCRE::PCRE)
+endif()
