@@ -49,6 +49,7 @@ if(NOT HAS_LOG2 OR NOT HAS_FMIN)
 endif()
 
 if(WIN32)
+    find_package(PCRE REQUIRED)
     target_link_libraries(merge-ip PRIVATE PCRE::PCRE)
 endif()
 
