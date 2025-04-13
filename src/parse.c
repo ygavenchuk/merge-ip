@@ -52,22 +52,18 @@
  *         - 3 if the subnet mask is invalid
  */
 int parse_cidr(const char *cidr, ipRange *range) {
-    char cidr_copy[CIDR_MAX_LENGTH];
-    strncpy(cidr_copy, cidr, CIDR_MAX_LENGTH);
-
     // split CIDR to IP & mask
-    char *slash = strchr(cidr_copy, '/');
+    char *slash = strchr(cidr, '/');
     if (slash == NULL) {
-        // if there's no prefix add /32
-        strncat(cidr_copy, "/32", sizeof(cidr_copy) - strlen(cidr_copy) - 1);
-        slash = strchr(cidr_copy, '/');
+        perror("CIDR without prefix! It should've never happened! I'm going to die now!");
+        exit(EXIT_FAILURE);
     }
     *slash = '\0';
 
     // convert IP address to binary format
     struct in_addr ip;
-    if (inet_aton(cidr_copy, &ip) == 0) {
-        fprintf(stderr, "ERROR: invalid IP address: %s\n", cidr_copy);
+    if (inet_aton(cidr, &ip) == 0) {
+        fprintf(stderr, "ERROR: invalid IP address: %s\n", cidr);
         return 2; // Error code
     }
 
@@ -76,7 +72,7 @@ int parse_cidr(const char *cidr, ipRange *range) {
     const long prefix_len = strtol(slash + 1, &end, 10);
     if (errno == ERANGE || prefix_len < 0 || prefix_len > CIDR_MAX_LENGTH) {
         fprintf(stderr, "ERROR: invalid network mask: %s\n", slash + 1);
-        return 3; // Код помилки
+        return 3; // Error code
     }
 
     // compute minimal & maximal IP-address
@@ -115,10 +111,10 @@ bool is_host(const char* cidr) {
 void add_prefix(char* cidr) {
     const unsigned char length = (unsigned char)strlen(cidr); // max CIDR length is 32, which is less than 255
 
-    cidr[length + 1] = '/';
-    cidr[length + 2] = '3';
-    cidr[length + 3] = '2';
-    cidr[length + 4] = 0;
+    cidr[length] = '/';
+    cidr[length + 1] = '3';
+    cidr[length + 2] = '2';
+    cidr[length + 3] = 0;
 }
 
 

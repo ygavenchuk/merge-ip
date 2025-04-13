@@ -40,6 +40,14 @@ list(REMOVE_ITEM SOURCES "${PROJECT_SOURCE_DIR}/src/main.c")
 target_include_directories(merge-ip_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(merge-ip_tests PRIVATE cmocka::cmocka ${SOURCES})
 
+include(CheckFunctionExists)
+CHECK_FUNCTION_EXISTS(log2 HAS_LOG2)
+CHECK_FUNCTION_EXISTS(fmin HAS_FMIN)
+
+if(NOT HAS_LOG2 OR NOT HAS_FMIN)
+    target_link_libraries(merge-ip_tests PRIVATE m)
+endif()
+
 add_test(NAME merge-ip_tests COMMAND merge-ip_tests)
 
 # Additional test options
