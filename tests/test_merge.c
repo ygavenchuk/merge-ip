@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <string.h>
 #include <setjmp.h>
 #include <cmocka.h>
@@ -117,6 +114,18 @@ char *get_buffer(const size_t size) {
     return buffer;
 }
 
+// a workaround for WIN systems - `fmemopen()` is not available there,
+// it's available only in POSIX systems, so we have to use a `tmpfile()`
+#ifdef _WIN32
+FILE* fmemopen_win(const void* data, const size_t size, const char* mode) {
+    FILE* tmp = tmpfile();
+    if (!tmp) return NULL;
+
+    return tmp;
+}
+#define fmemopen fmemopen_win
+#endif
+
 FILE *get_memory_stream(char *buffer, const size_t size) {
     FILE *stream = fmemopen(buffer, size, "w+");
     if (!stream) {
@@ -129,26 +138,39 @@ FILE *get_memory_stream(char *buffer, const size_t size) {
 
 
 typedef struct TestDataStream {
+    size_t size;
+    size_t capacity;
     char *buffer;
     FILE *stream;
 } TestDataStream;
 
 void open_stream(TestDataStream* stream, const size_t length) {
+    stream->size = 0;
+    stream->capacity = length;
     stream->buffer = get_buffer(length);
     stream->stream = get_memory_stream(stream->buffer, length);
 }
 
-void close_stream(const TestDataStream* stream) {
+void close_stream(TestDataStream* stream) {
     fclose(stream->stream);
     free(stream->buffer);
+    stream->size = 0;
+    stream->capacity = 0;
 }
 
-void write_to_stream(const TestDataStream* stream, const TestCase* test_case, const char* separator) {
+void write_to_test_data_stream(TestDataStream* stream, const TestCase* test_case, const char* separator) {
     for (size_t item = 0; item < test_case->input_count; item++) {
-        fprintf(stream->stream, "%s%s", test_case->input_cidr_list[item], separator);
+        stream->size += fprintf(stream->stream, "%s%s", test_case->input_cidr_list[item], separator);
     }
 
     rewind(stream->stream);
+}
+
+void read_from_test_data_stream(TestDataStream* stream) {
+    #ifdef _WIN32
+    rewind(stream->stream);
+    stream->size = (size_t)fread(stream->buffer, 1, stream->capacity, stream->stream);
+    #endif
 }
 
 
@@ -171,7 +193,7 @@ MergedTestCase merge_test_case(const TestCase* test_case, const char* separator)
 
     TestDataStream data_stream;
     open_stream(&data_stream, max_buffer_length);
-    write_to_stream(&data_stream, test_case, separator);
+    write_to_test_data_stream(&data_stream, test_case, separator);
 
     const ipRangeList *range_list = read_from_stream(data_stream.stream);
     close_stream(&data_stream);
@@ -182,6 +204,7 @@ MergedTestCase merge_test_case(const TestCase* test_case, const char* separator)
     open_stream(&result_stream, max_buffer_length);
 
     const size_t count = write_ip_ranges_to_file(merged_ip_ranges, result_stream.stream);
+    read_from_test_data_stream(&result_stream);
     fclose(result_stream.stream);
 
     return (MergedTestCase){
@@ -192,7 +215,7 @@ MergedTestCase merge_test_case(const TestCase* test_case, const char* separator)
 
 
 // this is not a "pure" test of the `merge_cidr()` function. It's rather a sort of integration test
-// and, therefore it should be somewhere in `test_main.c` or so
+// and, therefore, it should be somewhere in `test_main.c` or so
 void test_merge_cidr_separated_by_new_line(void **state) {
     for (size_t i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); i++) {
         const MergedTestCase merged_test_case = merge_test_case(&test_cases[i], "\n");
@@ -227,7 +250,15 @@ void test_merge_cidr_separated_by_tab(void **state) {
 }
 
 void merge_cidr_separated_by_page(const size_t page_size) {
-    char empty_page[page_size];
+    if (page_size == 0) {
+        return;
+    }
+
+    char* empty_page = malloc(page_size);
+    if (!empty_page) {
+        fprintf(stderr, "Failed to allocate memory for empty page\n");
+        exit(EXIT_FAILURE);
+    }
     memset(empty_page, ' ', page_size - 1);
     empty_page[page_size - 1] = '\0';
 
@@ -239,12 +270,19 @@ void merge_cidr_separated_by_page(const size_t page_size) {
 
         free((void*)merged_test_case.result);
     }
+    free(empty_page);
 }
 
 void test_empty_data_set(void **state) {
     const size_t page_size = 1200;
 
-    char empty_page[page_size];
+    // in windows compiler says `const` isn't a TRUE constant
+    char* empty_page = malloc(page_size);
+    if (!empty_page) {
+        fprintf(stderr, "Failed to allocate memory for empty page\n");
+        exit(EXIT_FAILURE);
+    }
+
     memset(empty_page, ' ', page_size - 1);
     empty_page[page_size - 1] = '\0';
 
@@ -253,6 +291,7 @@ void test_empty_data_set(void **state) {
     TestDataStream data_stream;
     open_stream(&data_stream, max_buffer_length);
     fprintf(data_stream.stream, "%s", empty_page);
+    free((void*)empty_page);
 
     const ipRangeList *range_list = read_from_stream(data_stream.stream);
     close_stream(&data_stream);

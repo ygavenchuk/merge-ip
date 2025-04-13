@@ -19,6 +19,12 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+#ifdef _WIN32
+  #include <stdio.h>
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+#endif
+
 void test_parse_command_line_options(void **state);
 void test_empty_data_set(void **state);
 void test_noise_data_set(void **state);
@@ -30,6 +36,14 @@ void test_reading_buffer_captures_broken_part_of_tailing_cidr(void **state);
 void test_reading_buffer_captures_only_part_of_tailing_cidr_prefix(void **state);
 
 int main(void) {
+    #ifdef _WIN32
+        WSADATA wsa;
+        if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
+            fprintf(stderr, "WSAStartup failed\n");
+            return 1;
+        }
+    #endif
+
     const struct CMUnitTest tests[] = {
             cmocka_unit_test(test_parse_command_line_options),
             cmocka_unit_test(test_empty_data_set),
@@ -42,5 +56,11 @@ int main(void) {
             cmocka_unit_test(test_reading_buffer_captures_only_part_of_tailing_cidr_prefix),
     };
 
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    const int tests_result = cmocka_run_group_tests(tests, NULL, NULL);
+
+    #ifdef _WIN32
+        WSACleanup();
+    #endif
+
+    return tests_result;
 }

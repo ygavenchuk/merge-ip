@@ -64,7 +64,7 @@ ipRangeList *getIpRangeList(const size_t size) {
  * @param data Pointer to ipRangeList structure whose memory
  *             needs to be freed.
  */
-inline void freeIpRangeList(ipRangeList *data) {
+void freeIpRangeList(ipRangeList *data) {
     if (data->cidrs != NULL) {
         free(data->cidrs);
         data->cidrs = NULL;

@@ -15,6 +15,9 @@
 
 # FetchContent to download CMocka
 include(FetchContent)
+
+set(CMAKE_DISABLE_TESTING ON) # Disable building CMocka's tests
+
 FetchContent_Declare(
     cmocka
     GIT_REPOSITORY https://git.cryptomilk.org/projects/cmocka.git
@@ -22,33 +25,33 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cmocka)
 
-# Enable CTest
-include(CTest)
-
 # Test sources
 file(GLOB TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test_*.c")
+file(GLOB SOURCES "${PROJECT_SOURCE_DIR}/src/*.c")
+file(GLOB HEADERS "${PROJECT_SOURCE_DIR}/src/*.h")
+list(REMOVE_ITEM SOURCES "${PROJECT_SOURCE_DIR}/src/main.c")
+
 add_executable(
         merge-ip_tests
         test_main.c
         ${TEST_SOURCES}
+        ${SOURCES}
+        ${HEADERS}
 )
 
-# Link original source files
-file(GLOB SOURCES "${PROJECT_SOURCE_DIR}/src/*.c")
-list(REMOVE_ITEM SOURCES "${PROJECT_SOURCE_DIR}/src/main.c")
-
 target_include_directories(merge-ip_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_link_libraries(merge-ip_tests PRIVATE cmocka::cmocka ${SOURCES})
+target_link_libraries(merge-ip_tests PRIVATE cmocka::cmocka )
 
-include(CheckFunctionExists)
-CHECK_FUNCTION_EXISTS(log2 HAS_LOG2)
-CHECK_FUNCTION_EXISTS(fmin HAS_FMIN)
 
 if(NOT HAS_LOG2 OR NOT HAS_FMIN)
     target_link_libraries(merge-ip_tests PRIVATE m)
 endif()
 
-add_test(NAME merge-ip_tests COMMAND merge-ip_tests)
+if(WIN32)
+    target_link_libraries(merge-ip_tests PRIVATE pcre2-posix)
+    target_link_libraries(merge-ip_tests PRIVATE ws2_32)
+endif()
 
-# Additional test options
-add_custom_target(tests COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure)
+# Enable CTest
+include(CTest)
+add_test(NAME merge-ip_tests COMMAND merge-ip_tests)

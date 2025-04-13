@@ -16,37 +16,36 @@
 file(GLOB HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 file(GLOB SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
+add_definitions(-Wall)
+
 if (CMAKE_BUILD_TYPE STREQUAL "Asan")
     add_definitions(
-            -g
             -O1
-            -Wno-unused-parameter
             -Wall
-            -Werror
-            -Wextra
-            -fno-omit-frame-pointer
             -fsanitize=address
             -fsanitize=integer
             -fsanitize=undefined
     )
     add_link_options(-fsanitize=address -fsanitize=integer -fsanitize=undefined)
-else ()
-    add_definitions(
-        -g
-        -Wno-unused-parameter
-        -Wall
-        -Werror
-        -Wextra
-        -fno-omit-frame-pointer
-    )
 endif()
+
+if(NOT WIN32)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        add_definitions(-g -fno-omit-frame-pointer)
+    endif()
+
+    add_definitions(-Wno-unused-parameter -Werror -Wextra)
+endif ()
+
 
 add_executable(merge-ip ${HEADERS} ${SOURCES})
 
-include(CheckFunctionExists)
-CHECK_FUNCTION_EXISTS(log2 HAS_LOG2)
-CHECK_FUNCTION_EXISTS(fmin HAS_FMIN)
 
 if(NOT HAS_LOG2 OR NOT HAS_FMIN)
     target_link_libraries(merge-ip PRIVATE m)
+endif()
+
+if(WIN32)
+    target_link_libraries(merge-ip PRIVATE pcre2-posix)
+    target_link_libraries(merge-ip PRIVATE ws2_32)
 endif()

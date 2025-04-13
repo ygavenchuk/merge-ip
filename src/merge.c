@@ -16,9 +16,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <arpa/inet.h>
 #include <math.h>
+#ifdef _WIN32
+    #include <stdint.h>
+#endif
 
 #include "merge.h"
 

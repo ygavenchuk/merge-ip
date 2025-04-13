@@ -21,7 +21,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <regex.h>
+
+#ifdef _WIN32
+    #include <stdint.h>
+    #include <pcre2posix.h>
+#else
+    #include <regex.h>
+#endif
 
 #include "parse.h"
 
@@ -62,7 +68,7 @@ int parse_cidr(const char *cidr, ipRange *range) {
 
     // convert IP address to binary format
     struct in_addr ip;
-    if (inet_aton(cidr, &ip) == 0) {
+    if (inet_pton(AF_INET, cidr, &ip) != 1) {
         fprintf(stderr, "ERROR: invalid IP address: %s\n", cidr);
         return 2; // Error code
     }
@@ -304,6 +310,6 @@ ipRangeList *read_from_file(const char *filename) {
  * @return A ParsedData structure containing the parsed CIDR blocks and their
  *         count.
  */
-inline ipRangeList *read_from_stdin() {
+ipRangeList* read_from_stdin() {
     return read_from_stream(stdin);
 }
