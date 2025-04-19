@@ -16,9 +16,10 @@
 file(GLOB HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 file(GLOB SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
+add_definitions(-Wall)
+
 if (CMAKE_BUILD_TYPE STREQUAL "Asan")
     add_definitions(
-            -g
             -O1
             -Wall
             -fsanitize=address
@@ -26,15 +27,10 @@ if (CMAKE_BUILD_TYPE STREQUAL "Asan")
             -fsanitize=undefined
     )
     add_link_options(-fsanitize=address -fsanitize=integer -fsanitize=undefined)
-else ()
-    add_definitions(
-        -g
-        -Wall
-    )
 endif()
 
 if(NOT WIN32)
-    add_definitions(-Wno-unused-parameter -Werror -Wextra -fno-omit-frame-pointer)
+    add_definitions(-g -Wno-unused-parameter -Werror -Wextra -fno-omit-frame-pointer)
 endif ()
 
 
