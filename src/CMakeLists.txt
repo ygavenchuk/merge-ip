@@ -21,9 +21,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Asan")
             -g
             -O1
             -Wall
-            -Werror
-            -Wextra
-            -fno-omit-frame-pointer
             -fsanitize=address
             -fsanitize=integer
             -fsanitize=undefined
@@ -33,13 +30,11 @@ else ()
     add_definitions(
         -g
         -Wall
-        -Wextra
-        -fno-omit-frame-pointer
     )
 endif()
 
 if(NOT WIN32)
-    add_definitions(-Wno-unused-parameter -Werror)
+    add_definitions(-Wno-unused-parameter -Werror -Wextra -fno-omit-frame-pointer)
 endif ()
 
 
