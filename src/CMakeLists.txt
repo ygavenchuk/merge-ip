@@ -33,14 +33,13 @@ else ()
     add_definitions(
         -g
         -Wall
-        -Werror
         -Wextra
         -fno-omit-frame-pointer
     )
 endif()
 
 if(NOT WIN32)
-    add_definitions(-Wno-unused-parameter)
+    add_definitions(-Wno-unused-parameter -Werror)
 endif ()
 
 
