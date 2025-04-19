@@ -41,11 +41,8 @@ if(NOT HAS_LOG2 OR NOT HAS_FMIN)
     target_link_libraries(merge-ip PRIVATE m)
 endif()
 
-if(NOT HAS_REGEXEC)
-    target_link_libraries(merge-ip PRIVATE pcre2-8)
-    target_include_directories(merge-ip PRIVATE ${pcre2_SOURCE_DIR}/src)
-endif()
-
 if(WIN32)
+    target_include_directories(merge-ip PRIVATE ${pcre2_SOURCE_DIR}/src)
+    target_link_libraries(merge-ip PRIVATE pcre2-8)
     target_link_libraries(merge-ip PRIVATE ws2_32)
 endif()
