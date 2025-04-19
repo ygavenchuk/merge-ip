@@ -46,15 +46,12 @@ endif ()
 
 add_executable(merge-ip ${HEADERS} ${SOURCES})
 
-include(CheckFunctionExists)
-CHECK_FUNCTION_EXISTS(log2 HAS_LOG2)
-CHECK_FUNCTION_EXISTS(fmin HAS_FMIN)
 
 if(NOT HAS_LOG2 OR NOT HAS_FMIN)
     target_link_libraries(merge-ip PRIVATE m)
 endif()
 
-if(WIN32)
-    find_package(PCRE REQUIRED)
-    target_link_libraries(merge-ip PRIVATE PCRE::PCRE)
+if(NOT HAS_REGEXEC)
+    target_link_libraries(merge-ip PRIVATE pcre2-8)
+    target_include_directories(merge-ip PRIVATE ${pcre2_SOURCE_DIR}/src)
 endif()

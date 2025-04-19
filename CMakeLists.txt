@@ -18,7 +18,12 @@ project(merge-ip C)
 
 set(CMAKE_C_STANDARD 11)
 
-if(WIN32)
+include(CheckFunctionExists)
+CHECK_FUNCTION_EXISTS(log2 HAS_LOG2)
+CHECK_FUNCTION_EXISTS(fmin HAS_FMIN)
+CHECK_FUNCTION_EXISTS(regexec HAS_REGEXEC)
+
+if(NOT HAS_REGEXEC)
     find_package(PCRE QUIET)
 
     if (NOT PCRE_FOUND)
@@ -28,7 +33,7 @@ if(WIN32)
                 GIT_REPOSITORY https://github.com/PCRE2Project/pcre2.git
                 GIT_TAG pcre2-10.45
         )
-        FetchContent_MakeAvailable(PCRE)
+        FetchContent_MakeAvailable(pcre)
     endif()
 endif()
 
