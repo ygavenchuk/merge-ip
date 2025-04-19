@@ -39,6 +39,14 @@
  * @return int Returns 0 on successful execution.
  */
 int main(const int argc, char *argv[]) {
+    #ifdef _WIN32
+        WSADATA wsa;
+        if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
+            fprintf(stderr, "WSAStartup failed\n");
+            return 1;
+        }
+    #endif
+
     const CommandLineOptions options = parse_command_line_options(argc, argv);
     ipRangeList *ip_range_list = NULL;
 
@@ -63,6 +71,10 @@ int main(const int argc, char *argv[]) {
             printf("DEBUG: Merged IP ranges in the CIDR format (total: %zu)\n", total_merged_cidrs);
         }
     }
+
+    #ifdef _WIN32
+        WSACleanup();
+    #endif
 
     return 0;
 }

@@ -50,6 +50,10 @@ if(NOT HAS_REGEXEC)
     target_include_directories(merge-ip_tests PRIVATE ${pcre2_SOURCE_DIR}/src)
 endif()
 
+if(WIN32)
+    target_link_libraries(merge-ip_tests PRIVATE ws2_32)
+endif()
+
 
 add_test(NAME merge-ip_tests COMMAND merge-ip_tests)
 

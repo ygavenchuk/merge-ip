@@ -62,7 +62,7 @@ int parse_cidr(const char *cidr, ipRange *range) {
 
     // convert IP address to binary format
     struct in_addr ip;
-    if (inet_aton(cidr, &ip) == 0) {
+    if (inet_pton(AF_INET, cidr, &ip) != 1) {
         fprintf(stderr, "ERROR: invalid IP address: %s\n", cidr);
         return 2; // Error code
     }
