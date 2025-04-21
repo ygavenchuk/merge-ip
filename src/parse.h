@@ -17,6 +17,8 @@
 #ifndef MERGE_IP_PARSE_H
 #define MERGE_IP_PARSE_H
 
+#include <stdio.h>
+
 #include "ipRange.h"
 
 

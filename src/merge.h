@@ -17,6 +17,8 @@
 #ifndef MERGE_IP_MERGE_H
 #define MERGE_IP_MERGE_H
 
+#include <stdio.h>
+
 #include "ipRange.h"
 
 #define CIDR_SIZE 20
