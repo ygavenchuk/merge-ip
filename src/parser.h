@@ -55,12 +55,13 @@
  * @param content The input string to be parsed for CIDR blocks.
  * @param regex A precompiled regular expression to identify CIDR blocks.
  * @param range_list A pointer to the ipRangeList structure to store the extracted CIDR blocks.
+ * @param require_full_cidr A boolean flag indicating whether to require a full CIDR block
  *
  * @return The number of characters parsed from the input string
  *
  * @note If memory allocation fails, the function prints an error message and
  *       exits the program.
  */
-size_t parse_content(const char *content, const regex_t *regex, ipRangeList *range_list, bool ignore_tails);
+size_t parse_content(const char *content, const regex_t *regex, ipRangeList *range_list, const bool require_full_cidr);
 
 #endif //MERGE_IP_PARSE_H

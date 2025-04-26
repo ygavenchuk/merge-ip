@@ -86,6 +86,24 @@ bool is_host(const char* cidr) {
 
 
 /**
+ * Checks if the given CIDR block has a full length (2 digits) prefix.
+ *
+ * @param cidr The CIDR block string to check.
+ *
+ * @return true  - the CIDR block has a full 2-digit prefix (e.g., "/32")
+ *         false - otherwise
+ */
+bool has_full_prefix(const char* cidr) {
+    const char *slash = strchr(cidr, '/');
+    if (slash == NULL) {
+        return false;
+    }
+
+    return (unsigned char)strlen(slash + 1) == 2;
+}
+
+
+/**
  * @brief Adds the "/32" prefix to the given CIDR block string, assuming it is a host.
  *
  * This function appends "/32" to the provided CIDR block string assuming it does not
@@ -131,13 +149,14 @@ void ensure_prefix(char* cidr) {
  * @param content The input string to be parsed for CIDR blocks.
  * @param regex A precompiled regular expression to identify CIDR blocks.
  * @param range_list A pointer to the ipRangeList structure to store the extracted CIDR blocks.
+ * @param require_full_cidr A boolean flag indicating whether to require a full CIDR block
  *
  * @return The number of characters parsed from the input string
  *
  * @note If memory allocation fails, the function prints an error message and
  *       exits the program.
  */
-size_t parse_content(const char *content, const regex_t *regex, ipRangeList *range_list, bool ignore_tails) {
+size_t parse_content(const char *content, const regex_t *regex, ipRangeList *range_list, const bool require_full_cidr) {
     regmatch_t matches[6];
 
     ipRange *ip_range = malloc(sizeof(ipRange));
@@ -156,13 +175,14 @@ size_t parse_content(const char *content, const regex_t *regex, ipRangeList *ran
         const size_t token_end = matches[5].rm_eo; // position of the last matched token (CIDR + whitespaces)
         parsed_length += token_end;
 
-        if (ignore_tails && parsed_length >= content_length - CIDR_MIN_LENGTH && !isspace(content[cidr_end])) {
+        char cidr[CIDR_MAX_LENGTH] = {0};
+        strncpy(cidr, content + cidr_start, cidr_length);
+
+        const bool is_last_token = parsed_length >= content_length - CIDR_MIN_LENGTH;
+        if (require_full_cidr && is_last_token && !has_full_prefix(cidr)) {
             parsed_length += cidr_start - token_end;
             break;
         }
-
-        char cidr[CIDR_MAX_LENGTH] = {0};
-        strncpy(cidr, content + cidr_start, cidr_length);
 
         ensure_prefix(cidr);
 
