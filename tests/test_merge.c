@@ -21,7 +21,7 @@
 #include <cmocka.h>
 
 #include "merge.h"
-#include "parse.h"
+#include "reader.h"
 #include "ipRange.h"
 
 const char ALPHA_NUMERIC[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

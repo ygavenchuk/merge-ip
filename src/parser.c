@@ -16,32 +16,12 @@
 
 #include <errno.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#ifdef _WIN32
-    #include <stdint.h>
-    #include <pcre2posix.h>
-#else
-    #include <regex.h>
-#endif
-
-#include "parse.h"
-
-#define BUFFER_SIZE 1024
-// strlen("255.255.255.255/255.255.255.255") + '\0'
-#define CIDR_MAX_LENGTH 32  // 3 for "/32" and 1 for '\0'
-// strlen("1.1.1.1")
-#define CIDR_MIN_LENGTH 7
-// The buffer may contain a limited number of records. In the limiting case there cannot be more than
-// ceil(BUFFER_SIZE / (CIDR_MIN_LENGTH + 1) )
-// Here:
-//   - `(BUFFER_SIZE + (CIDR_MIN_LENGTH + 1) - 1)` is an integer equivalent of `ceil()`
-//   - `+1` in the denominator is for a separator between adjacent records
-#define MAX_BUFFER_CAPACITY ((BUFFER_SIZE + (CIDR_MIN_LENGTH + 1) - 1) / (CIDR_MIN_LENGTH + 1))
+#include "parser.h"
 
 
 /**
@@ -140,37 +120,6 @@ void ensure_prefix(char* cidr) {
 
 
 /**
- * @brief Moves the reminder part of the buffer to the start and zeroes out the rest.
- *
- * This function takes a buffer and a starting position. It moves the content of the buffer
- * starting from the given position to the beginning of the buffer and zeroes out the rest.
- *
- * @param buffer The buffer to be modified.
- * @param reminder_start_pos The starting position from which to move content.
- *
- * @return The length of the moved fragment.
- */
-size_t move_reminder_to_start(char *buffer, const size_t reminder_start_pos) {
-    size_t buffer_size = strlen(buffer);
-    if (reminder_start_pos >= buffer_size) {
-        // If start_pos is out of bounds, zero the entire buffer
-        memset(buffer, 0, buffer_size);
-        return 0;
-    }
-    // Calculate the length of the fragment to move
-    size_t fragment_length = buffer_size - reminder_start_pos;
-
-    // Move the fragment to the beginning of the buffer
-    memmove(buffer, buffer + reminder_start_pos, fragment_length);
-
-    // Zero out the rest of the buffer
-    memset(buffer + fragment_length, 0, buffer_size - fragment_length);
-
-    return fragment_length;
-}
-
-
-/**
  * @brief Parses content for CIDR blocks defined by the given regular expression
  * and returns the parsed data.
  *
@@ -227,89 +176,4 @@ size_t parse_content(const char *content, const regex_t *regex, ipRangeList *ran
     free(ip_range);
 
     return parsed_length;
-}
-
-
-/**
- * @brief Reads data from a given stream, parses it to extract CIDR blocks,
- *        and returns a ParsedData structure containing all the extracted CIDR blocks.
- *
- * This function reads the input stream line by line, and for each line,
- * it attempts to match and extract CIDR blocks using a regular expression.
- * The extracted CIDR blocks are stored in a ParsedData structure, which is returned
- * upon completion of the function. It handles potential line splits by keeping
- * any remaining part of a line in a buffer till it is fully parsed in subsequent read operations.
- *
- * @param stream The input file stream to read data from.
- * @return ParsedData structure containing all the parsed CIDR blocks.
- *
- * @note If memory allocation fails, the function prints an error message and exits the program.
- */
-ipRangeList *read_from_stream(FILE *stream) {
-    ipRangeList *ip_range_list = getIpRangeList(MAX_BUFFER_CAPACITY);
-
-    // surprisingly the `regex_t` doesn't capture space symbols by the `\s`,
-    // so I have to explicitly list them in the pattern
-    const char *CIDR_PATTERN = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)([ \t\n\r\v\f]*)";
-    regex_t regex;
-    if (regcomp(&regex, CIDR_PATTERN, REG_EXTENDED | REG_NEWLINE)) {
-        fprintf(stderr, "Failed to compile regex.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    char buffer[BUFFER_SIZE] = {0};
-    // `fread()` doesn't automatically add '\0' at the end of the buffer,
-    // so we have to read 1 symbol less
-    size_t reminder_size = 0;
-    while ( fread(buffer + reminder_size, sizeof(char), BUFFER_SIZE - reminder_size - 1, stream) ) {
-        const size_t parsed_chars = parse_content(buffer, &regex, ip_range_list, true);
-        reminder_size = move_reminder_to_start(buffer, parsed_chars);
-    }
-
-    if (reminder_size) {
-        parse_content(buffer + reminder_size, &regex, ip_range_list, false);
-    }
-
-    regfree(&regex);
-
-    return ip_range_list;
-}
-
-
-/**
- * Reads the content of a file specified by 'filename' and parses its data.
- *
- * This function opens the file in read mode, processes its content using
- * 'read_from_stream', and then closes the file.
- *
- * @param filename The name of the file to be read.
- * @return ParsedData struct containing the parsed data from the file.
- *
- * @note If the file cannot be opened, the function prints an error message
- *       and exits the program with a failure status.
- */
-ipRangeList *read_from_file(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        perror("Failed to open file");
-        exit(EXIT_FAILURE);
-    }
-    ipRangeList *data = read_from_stream(file);
-    fclose(file);
-    return data;
-}
-
-
-/**
- * Reads and parses data from standard input (stdin).
- *
- * This function utilizes the read_from_stream function to read data
- * from the standard input and parse it. It returns a ParsedData
- * structure containing the results.
- *
- * @return A ParsedData structure containing the parsed CIDR blocks and their
- *         count.
- */
-ipRangeList* read_from_stdin() {
-    return read_from_stream(stdin);
 }

@@ -15,11 +15,10 @@
  */
 
 #include <stdlib.h>
-#include <stdio.h>
 
 #include "ipRange.h"
 #include "merge.h"
-#include "parse.h"
+#include "reader.h"
 #include "cli.h"
 
 /**
