@@ -25,6 +25,31 @@
 
 
 /**
+ * @brief Returns a precompiled regex_t object for matching CIDR blocks.
+ *
+ * This function compiles a regular expression that matches CIDR blocks in the format
+ * "address/prefix_length". The regex is compiled with extended syntax and newline support.
+ *
+ * The caller is responsible for freeing the regex_t object using `regfree()` after use.
+ *
+ * @return A regex_t object representing the compiled regular expression.
+ */
+regex_t get_regex() {
+    // surprisingly, the `regex_t` doesn't capture space symbols by the `\s`,
+    // so I have to explicitly list them in the pattern
+    const char *CIDR_PATTERN = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)([ \t\n\r\v\f]*)";
+
+    regex_t regex;
+    if (regcomp(&regex, CIDR_PATTERN, REG_EXTENDED | REG_NEWLINE)) {
+        fprintf(stderr, "Failed to compile regex.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return regex;
+}
+
+
+/**
  * Parses a CIDR block and calculates the minimum and maximum IP addresses within the range.
  *
  * This function takes a CIDR block in the form "address/prefix_length", parses it, and computes

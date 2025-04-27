@@ -70,14 +70,7 @@ size_t move_reminder_to_start(char *buffer, const size_t reminder_start_pos) {
 ipRangeList *read_from_stream(FILE *stream) {
     ipRangeList *ip_range_list = getIpRangeList(MAX_BUFFER_CAPACITY);
 
-    // surprisingly the `regex_t` doesn't capture space symbols by the `\s`,
-    // so I have to explicitly list them in the pattern
-    const char *CIDR_PATTERN = "(([0-9]{1,3}\\.){3}[0-9]{1,3}(/([0-9]{1,2}))?)([ \t\n\r\v\f]*)";
-    regex_t regex;
-    if (regcomp(&regex, CIDR_PATTERN, REG_EXTENDED | REG_NEWLINE)) {
-        fprintf(stderr, "Failed to compile regex.\n");
-        exit(EXIT_FAILURE);
-    }
+    regex_t regex = get_regex();
 
     char buffer[BUFFER_SIZE] = {0};
     // `fread()` doesn't automatically add '\0' at the end of the buffer,

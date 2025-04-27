@@ -44,6 +44,19 @@
 
 
 /**
+ * @brief Returns a precompiled regex_t object for matching CIDR blocks.
+ *
+ * This function compiles a regular expression that matches CIDR blocks in the format
+ * "address/prefix_length". The regex is compiled with extended syntax and newline support.
+ *
+ * The caller is responsible for freeing the regex_t object using `regfree()` after use.
+ *
+ * @return A regex_t object representing the compiled regular expression.
+ */
+regex_t get_regex();
+
+
+/**
  * @brief Parses content for CIDR blocks defined by the given regular expression
  * and returns the parsed data.
  *
