@@ -86,20 +86,30 @@ bool is_host(const char* cidr) {
 
 
 /**
- * Checks if the given CIDR block has a full length (2 digits) prefix.
+ * @brief Checks if the CIDR block is potentially broken.
  *
- * @param cidr The CIDR block string to check.
+ * This function checks if the CIDR block is potentially broken by looking
+ * for a two-digit prefix at the end of the CIDR block. If the CIDR block
+ * is broken, it returns true; otherwise, it returns false.
  *
- * @return true  - the CIDR block has a full 2-digit prefix (e.g., "/32")
- *         false - otherwise
+ * @param content The content string to check.
+ * @param cidr_end The end position of the CIDR block in the content string.
+ *
+ * @return true if the CIDR block is potentially broken; false otherwise.
  */
-bool has_full_prefix(const char* cidr) {
-    const char *slash = strchr(cidr, '/');
-    if (slash == NULL) {
-        return false;
+bool maybe_broken_cidr(const char* content, const size_t cidr_end) {
+    if (isspace(content[cidr_end])) {
+        return false; // the regex has caught the whole CIDR block
     }
 
-    return (unsigned char)strlen(slash + 1) == 2;
+    // There's no 2-digit prefix in the captured CIDR.
+    // Theoretically, it might be in the next text not
+    // read yet into the buffer, so the CIDR potentially MAY be broken
+    return !(
+        content[cidr_end - 3] == '/'
+        && isdigit(content[cidr_end - 2])
+        && isdigit(content[cidr_end - 1])
+    );
 }
 
 
@@ -175,14 +185,14 @@ size_t parse_content(const char *content, const regex_t *regex, ipRangeList *ran
         const size_t token_end = matches[5].rm_eo; // position of the last matched token (CIDR + whitespaces)
         parsed_length += token_end;
 
-        char cidr[CIDR_MAX_LENGTH] = {0};
-        strncpy(cidr, content + cidr_start, cidr_length);
-
         const bool is_last_token = parsed_length >= content_length - CIDR_MIN_LENGTH;
-        if (require_full_cidr && is_last_token && !has_full_prefix(cidr)) {
+        if ( require_full_cidr && is_last_token && maybe_broken_cidr(content, cidr_end) ) {
             parsed_length += cidr_start - token_end;
             break;
         }
+
+        char cidr[CIDR_MAX_LENGTH] = {0};
+        strncpy(cidr, content + cidr_start, cidr_length);
 
         ensure_prefix(cidr);
 
