@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef MERGE_IP_PARSE_H
-#define MERGE_IP_PARSE_H
+#ifndef MERGE_IP_READER_H
+#define MERGE_IP_READER_H
 
 #include <stdio.h>
 
@@ -39,6 +39,7 @@
  */
 ipRangeList *read_from_stream(FILE *stream);
 
+
 /**
  * Reads and parses data from standard input (stdin).
  *
@@ -50,6 +51,7 @@ ipRangeList *read_from_stream(FILE *stream);
  *         count.
  */
 ipRangeList *read_from_stdin();
+
 
 /**
  * Reads and parses data from standard input (stdin).
@@ -63,4 +65,4 @@ ipRangeList *read_from_stdin();
  */
 ipRangeList *read_from_file(const char *filename);
 
-#endif //MERGE_IP_PARSE_H
+#endif //MERGE_IP_READER_H
