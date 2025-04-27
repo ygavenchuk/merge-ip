@@ -172,6 +172,46 @@ void ensure_prefix(char* cidr) {
 }
 
 
+typedef struct {
+    bool maybe_broken;
+    size_t start;
+    size_t end;
+    char cidr[CIDR_MAX_LENGTH];
+} CIDRToken;
+
+
+/** @brief Extracts a CIDR block from the given content using the provided regex.
+ *
+ * This function uses a regular expression to find and extract a CIDR block from
+ * the input content. It fills the provided CIDRToken structure with the extracted
+ * information, including the start and end positions of the match.
+ *
+ * @param content The input string to search for a CIDR block.
+ * @param regex A precompiled regular expression to match CIDR blocks.
+ * @param token A pointer to a CIDRToken structure to store the extracted information.
+ *
+ * @return true if a CIDR block was found and extracted; false otherwise.
+ */
+bool get_token(const char* content, const regex_t* regex, CIDRToken* token) {
+    regmatch_t matches[6];
+    memset(token->cidr, 0, CIDR_MAX_LENGTH);
+
+    if (regexec(regex, content, 6, matches, 0) != 0) {
+        return false;
+    }
+
+    token->start = matches[1].rm_so;
+    const size_t cidr_end = matches[1].rm_eo;
+    token->end = matches[5].rm_eo; // position of the last matched token (CIDR + whitespaces)
+    token->maybe_broken = maybe_broken_cidr(content, cidr_end);
+
+    strncpy(token->cidr, content + token->start, cidr_end - token->start);
+    ensure_prefix(token->cidr);
+
+    return true;
+}
+
+
 /**
  * @brief Parses content for CIDR blocks defined by the given regular expression
  * and returns the parsed data.
@@ -192,40 +232,29 @@ void ensure_prefix(char* cidr) {
  *       exits the program.
  */
 size_t parse_content(const char *content, const regex_t *regex, ipRangeList *range_list, const bool require_full_cidr) {
-    regmatch_t matches[6];
-
     ipRange *ip_range = malloc(sizeof(ipRange));
     if (!ip_range) {
         perror("Failed to allocate IP range");
         exit(EXIT_FAILURE);
     }
 
-    size_t cidr_end = 0;
     const size_t content_length = (size_t)strlen(content);
     size_t parsed_length = 0;
-    while (regexec(regex, content, 6, matches, 0) == 0) {
-        const size_t cidr_start = matches[1].rm_so;
-        cidr_end = matches[1].rm_eo;
-        const unsigned char cidr_length = (unsigned char)(cidr_end - cidr_start);
-        const size_t token_end = matches[5].rm_eo; // position of the last matched token (CIDR + whitespaces)
-        parsed_length += token_end;
+    CIDRToken token;
+    while ( get_token(content, regex, &token) ) {
+        parsed_length += token.end;
 
         const bool is_last_token = parsed_length >= content_length - CIDR_MIN_LENGTH;
-        if ( require_full_cidr && is_last_token && maybe_broken_cidr(content, cidr_end) ) {
-            parsed_length += cidr_start - token_end;
+        if ( require_full_cidr && is_last_token && token.maybe_broken ) {
+            parsed_length += token.start - token.end;
             break;
         }
 
-        char cidr[CIDR_MAX_LENGTH] = {0};
-        strncpy(cidr, content + cidr_start, cidr_length);
-
-        ensure_prefix(cidr);
-
-        if (parse_cidr(cidr, ip_range) == 0) {
+        if (parse_cidr(token.cidr, ip_range) == 0) {
             appendIpRange(range_list, ip_range);
         }
 
-        content += token_end;
+        content += token.end;
     }
 
     free(ip_range);
