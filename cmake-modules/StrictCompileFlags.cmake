@@ -57,7 +57,6 @@ function(enable_strict_build_flags target_name)
         message(STATUS "Using MSVC warnings")
         set(strict_compile_flags
                 /W4
-                /WX
                 /permissive-
                 /sdl
                 /analyze
