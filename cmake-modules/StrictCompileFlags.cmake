@@ -59,7 +59,6 @@ function(enable_strict_build_flags target_name)
                 /W4
                 /permissive-
                 /sdl
-                /analyze
         )
     endif()
 
