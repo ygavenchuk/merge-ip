@@ -58,7 +58,6 @@ function(enable_strict_build_flags target_name)
         set(strict_compile_flags
                 /W4
                 /permissive-
-                /sdl
         )
     endif()
 
