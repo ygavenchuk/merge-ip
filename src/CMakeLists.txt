@@ -16,36 +16,9 @@
 file(GLOB HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 file(GLOB SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
-add_definitions(-Wall)
-
-if (CMAKE_BUILD_TYPE STREQUAL "Asan")
-    add_definitions(
-            -O1
-            -Wall
-            -fsanitize=address
-            -fsanitize=integer
-            -fsanitize=undefined
-    )
-    add_link_options(-fsanitize=address -fsanitize=integer -fsanitize=undefined)
-endif()
-
-if(NOT WIN32)
-    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_definitions(-g -fno-omit-frame-pointer)
-    endif()
-
-    add_definitions(-Wno-unused-parameter -Werror -Wextra)
-endif ()
-
-
 add_executable(merge-ip ${HEADERS} ${SOURCES})
 
-
-if(NOT HAS_LOG2 OR NOT HAS_FMIN)
-    target_link_libraries(merge-ip PRIVATE m)
-endif()
-
-if(WIN32)
-    target_link_libraries(merge-ip PRIVATE pcre2-posix)
-    target_link_libraries(merge-ip PRIVATE ws2_32)
-endif()
+enable_strict_build_flags(merge-ip)
+enable_optimized_build_flags(merge-ip)
+enable_portable_math(merge-ip)
+enable_regex_fallback(merge-ip)

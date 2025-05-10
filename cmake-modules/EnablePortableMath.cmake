@@ -1,5 +1,5 @@
 #
-# Copyright 2024 Yurii Havenchuk.
+# Copyright 2025 Yurii Havenchuk.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.31)
-project(merge-ip C)
+function(enable_portable_math target)
+    include(CheckFunctionExists)
 
-set(CMAKE_C_STANDARD 11)
+    check_function_exists(log2 HAS_LOG2)
+    check_function_exists(fmin HAS_FMIN)
 
-add_subdirectory(cmake-modules)
-add_subdirectory(src)
-add_subdirectory(tests)
-
-enable_testing()
-message(STATUS "CMake project setup complete. Ready to build and run tests.")
+    if(NOT HAS_LOG2 OR NOT HAS_FMIN)
+        target_link_libraries(${target} PRIVATE m)
+    endif()
+endfunction()
