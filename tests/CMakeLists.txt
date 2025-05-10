@@ -13,18 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# FetchContent to download CMocka
-include(FetchContent)
-
-set(CMAKE_DISABLE_TESTING ON) # Disable building CMocka's tests
-
-FetchContent_Declare(
-    cmocka
-    GIT_REPOSITORY https://git.cryptomilk.org/projects/cmocka.git
-    GIT_TAG        cmocka-1.1.7
-)
-FetchContent_MakeAvailable(cmocka)
-
 # Test sources
 file(GLOB TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test_*.c")
 file(GLOB SOURCES "${PROJECT_SOURCE_DIR}/src/*.c")
@@ -40,17 +28,12 @@ add_executable(
 )
 
 target_include_directories(merge-ip_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_link_libraries(merge-ip_tests PRIVATE cmocka::cmocka )
 
-
-if(NOT HAS_LOG2 OR NOT HAS_FMIN)
-    target_link_libraries(merge-ip_tests PRIVATE m)
-endif()
-
-if(WIN32)
-    target_link_libraries(merge-ip_tests PRIVATE pcre2-posix)
-    target_link_libraries(merge-ip_tests PRIVATE ws2_32)
-endif()
+enable_cmocka(merge-ip_tests)
+enable_strict_build_flags(merge-ip_tests)
+enable_optimized_build_flags(merge-ip_tests)
+enable_portable_math(merge-ip_tests)
+enable_regex_fallback(merge-ip_tests)
 
 # Enable CTest
 include(CTest)

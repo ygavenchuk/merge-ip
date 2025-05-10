@@ -23,7 +23,18 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-13, macos-latest, windows-latest ]
         build_type: [ Release ]
-        c_compiler: [ clang, gcc ]
+        c_compiler: [ clang, gcc, cl ]
+        exclude:
+          - os: ubuntu-latest
+            c_compiler: cl
+          - os: macos-13
+            c_compiler: cl
+          - os: macos-latest
+            c_compiler: cl
+          - os: windows-latest
+            c_compiler: gcc
+          - os: windows-latest
+            c_compiler: clang
 
     steps:
       - uses: actions/checkout@v4
